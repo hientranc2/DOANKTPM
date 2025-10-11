@@ -4,9 +4,8 @@ import Admin from './Pages/Admin/Admin.jsx'
 const App = () => {
   return (
     <div>
-    <Navbar/>
-    <Admin/>
-
+      <Navbar />
+      <Admin />
     </div>
   )
 }
