@@ -21,3 +21,18 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Dependencies
+node_modules/
+package-lock.json  # Nếu dùng yarn, ignore yarn.lock tương tự
+
+# Build output
+dist/
+build/
+.next/  # Nếu dùng Next.js
+
+# Logs and temp files
+*.log
+.env.local
+.DS_Store  # MacOS files
+
