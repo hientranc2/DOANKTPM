@@ -28,6 +28,42 @@
   color: #61dafb;
 }
 
+.shop-error-banner {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fcd34d;
+  padding: 12px 24px;
+  text-align: center;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.shop-error-banner button {
+  background: #f59e0b;
+  color: #fff7ed;
+  border: none;
+  border-radius: 9999px;
+  padding: 8px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.shop-error-banner button:hover {
+  background: #d97706;
+  transform: translateY(-1px);
+}
+
+.shop-error-banner button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);

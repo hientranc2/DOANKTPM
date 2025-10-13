@@ -25,6 +25,13 @@
     gap: 30px;
 }
 
+.popular-empty {
+    width: 100%;
+    text-align: center;
+    color: #555;
+    font-weight: 500;
+}
+
 @media(max-width:1280px) {
     .popular {
         height: 70vh;
