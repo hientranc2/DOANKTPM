@@ -26,6 +26,13 @@
     gap: 30px;
 }
 
+.collections-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    color: #555;
+    font-weight: 500;
+}
+
 @media(max-width:1280px) {
     .new-collections h1 {
         font-size: 40px;

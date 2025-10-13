@@ -41,6 +41,13 @@
     background: #fff;
 }
 
+.cartitems-loading {
+    text-align: center;
+    padding: 20px 0;
+    color: #555;
+    font-weight: 500;
+}
+
 .cartitems-down {
     display: flex;
     margin: 100px 0px;
