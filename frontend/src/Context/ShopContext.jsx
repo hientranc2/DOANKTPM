@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useEffect, useState } from 'react'
 import fallbackProducts from '../Components/assests/all_product'
+import { API_BASE_URL, resolveImageUrl } from '../config'
 
 export const ShopContext = createContext(null)
 
@@ -22,14 +23,20 @@ const ShopContextProvider = (props) => {
   const fetchProducts = useCallback(async () => {
     setLoadingProducts(true)
     try {
-      const response = await fetch('http://localhost:4000/allproducts')
+      const response = await fetch(`${API_BASE_URL}/allproducts`)
       if (!response.ok) {
         throw new Error('Không thể tải danh sách sản phẩm.')
       }
       const data = await response.json()
       if (Array.isArray(data) && data.length > 0) {
-        setProducts(data)
-        setCartItems((previous) => buildCartFromProducts(data, previous))
+        const normalizedProducts = data.map((product) => ({
+          ...product,
+          image: resolveImageUrl(product.image)
+        }))
+        setProducts(normalizedProducts)
+        setCartItems((previous) =>
+          buildCartFromProducts(normalizedProducts, previous)
+        )
         setError('')
       } else {
         setProducts(fallbackProducts)

@@ -3,11 +3,13 @@ import './ProductDisplay.css'
 import star_icon from '../assests/star_icon.png'
 import star_dull_icon from '../assests/star_dull_icon.png'
 import { ShopContext } from '../../Context/ShopContext'
+import { resolveImageUrl } from '../../config'
 
 const ProductDisplay = (props) => {
 
     const { product } = props;
     const { addToCart } = useContext(ShopContext);
+    const productImage = resolveImageUrl(product?.image);
 
     if (!product) {
         return null;
@@ -17,13 +19,13 @@ const ProductDisplay = (props) => {
         <div className='productdisplay'>
             <div className="productdisplay-left">
                 <div className="productdisplay-img-list">
-                    <img src={product.image} alt="" />
-                    <img src={product.image} alt="" />
-                    <img src={product.image} alt="" />
-                    <img src={product.image} alt="" />
+                    <img src={productImage} alt="" />
+                    <img src={productImage} alt="" />
+                    <img src={productImage} alt="" />
+                    <img src={productImage} alt="" />
                 </div>
                 <div className="prodcutdisplay-img">
-                    <img className='prodcutdisplay-main-img' src={product.image} alt="" />
+                    <img className='prodcutdisplay-main-img' src={productImage} alt="" />
                 </div>
             </div>
             <div className="productdisplay-right">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import './CSS/LoginSignup.css'
+import { API_BASE_URL } from '../config'
 
 const LoginSignup = () => {
   const [mode, setMode] = useState('signup')
@@ -34,7 +35,7 @@ const LoginSignup = () => {
         payload.name = form.name
       }
 
-      const response = await fetch(`http://localhost:4000/${endpoint}`, {
+      const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import './OrderManagement.css'
 import CustomerManagement from '../CustomerManagement/CustomerManagement'
+import { API_BASE_URL } from '../../config'
 
 const STATUS_OPTIONS = [
   { value: 'pending', label: 'Chờ xử lý' },
@@ -34,7 +35,7 @@ const OrderManagement = () => {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('http://localhost:4000/orders')
+      const response = await fetch(`${API_BASE_URL}/orders`)
       const data = await response.json()
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Không thể tải đơn hàng.')
@@ -57,7 +58,7 @@ const OrderManagement = () => {
     setError('')
     setFeedback('')
     try {
-      const response = await fetch(`http://localhost:4000/orders/${orderId}`, {
+      const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
         method: 'PATCH',
         headers: {
           Accept: 'application/json',
