@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import './CustomerManagement.css'
+import { API_BASE_URL } from '../../config'
 
 const statusDictionary = {
   active: 'Hoạt động',
@@ -17,7 +18,7 @@ const CustomerManagement = () => {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('http://localhost:4000/users')
+      const response = await fetch(`${API_BASE_URL}/users`)
       const data = await response.json()
       if (!response.ok || !data.success) {
         throw new Error(data.message || 'Không thể tải khách hàng.')
@@ -50,7 +51,7 @@ const CustomerManagement = () => {
     setError('')
     setFeedback('')
     try {
-      const response = await fetch(`http://localhost:4000/users/${customer.id}/status`, {
+      const response = await fetch(`${API_BASE_URL}/users/${customer.id}/status`, {
         method: 'PATCH',
         headers: {
           Accept: 'application/json',

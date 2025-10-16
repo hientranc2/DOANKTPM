@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import './ListProduct.css'
 import cross_icon from '../../assets/cross_icon.png'
+import { API_BASE_URL, resolveImageUrl } from '../../config'
 
 const ListProduct = () => {
   const [allProducts, setAllProducts] = useState([])
@@ -14,7 +15,7 @@ const ListProduct = () => {
     setLoading(true)
     setError('')
     try {
-      const response = await fetch('http://localhost:4000/allproducts')
+      const response = await fetch(`${API_BASE_URL}/allproducts`)
       if (!response.ok) {
         throw new Error('Không thể tải danh sách sản phẩm.')
       }
@@ -36,7 +37,7 @@ const ListProduct = () => {
     setError('')
     setFeedback('')
     try {
-      const response = await fetch('http://localhost:4000/removeproduct', {
+      const response = await fetch(`${API_BASE_URL}/removeproduct`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
@@ -75,7 +76,7 @@ const ListProduct = () => {
     setError('')
     setFeedback('')
     try {
-      const response = await fetch(`http://localhost:4000/product/${editProduct.id}`, {
+      const response = await fetch(`${API_BASE_URL}/product/${editProduct.id}`, {
         method: 'PUT',
         headers: {
           Accept: 'application/json',
@@ -126,7 +127,7 @@ const ListProduct = () => {
           allProducts.map((product) => (
             <React.Fragment key={product.id}>
               <div className='listproduct-format-main listproduct-format'>
-                <img src={product.image} alt='' className='listproduct-product-icon' />
+                <img src={resolveImageUrl(product.image)} alt='' className='listproduct-product-icon' />
                 <p>{product.name}</p>
                 <p>{product.old_price}đ</p>
                 <p>{product.new_price}đ</p>
