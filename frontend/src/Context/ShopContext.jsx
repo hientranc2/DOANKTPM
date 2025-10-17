@@ -100,6 +100,10 @@ const ShopContextProvider = (props) => {
     return totalItem
   }
 
+  const clearCart = useCallback(() => {
+    setCartItems(buildCartFromProducts(products))
+  }, [products])
+
   const contextValue = {
     getTotalCartItems,
     getTotalCartAmount,
@@ -109,7 +113,8 @@ const ShopContextProvider = (props) => {
     removeFromCart,
     loadingProducts,
     productError: error,
-    refreshProducts: fetchProducts
+    refreshProducts: fetchProducts,
+    clearCart
   }
 
   return (

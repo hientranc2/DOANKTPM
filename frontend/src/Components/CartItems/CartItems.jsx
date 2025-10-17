@@ -3,6 +3,7 @@ import './CartItems.css'
 import { ShopContext } from '../../Context/ShopContext'
 import remove_icon from '../assests/cart_cross_icon.png'
 import { resolveImageUrl } from '../../config'
+import { useNavigate } from 'react-router-dom'
 
 const CartItems = () => {
   const {
@@ -10,8 +11,17 @@ const CartItems = () => {
     products,
     cartItems,
     removeFromCart,
-    loadingProducts
+    loadingProducts,
+    getTotalCartItems
   } = useContext(ShopContext)
+  const navigate = useNavigate()
+  const hasItemsInCart = getTotalCartItems() > 0
+  const totalAmount = getTotalCartAmount()
+
+  const formatCurrency = (value) => {
+    const amount = Number(value) || 0
+    return `${amount.toLocaleString('vi-VN')}đ`
+  }
 
   return (
     <div className='cartitems'>
@@ -37,11 +47,11 @@ const CartItems = () => {
                     className='carticon-product-icon'
                   />
                   <p>{product.name}</p>
-                  <p>{product.new_price}đ</p>
+                  <p>{formatCurrency(product.new_price)}</p>
                   <button className='cartitems-quantity'>
                     {cartItems[product.id]}
                   </button>
-                  <p>{product.new_price * cartItems[product.id]}đ</p>
+                  <p>{formatCurrency(product.new_price * cartItems[product.id])}</p>
                   <img
                     src={remove_icon}
                     onClick={() => {
@@ -62,7 +72,7 @@ const CartItems = () => {
           <div>
             <div className='cartitems-total-item'>
               <p>Subtotal</p>
-              <p>{getTotalCartAmount()}đ</p>
+              <p>{formatCurrency(totalAmount)}</p>
             </div>
             <hr />
             <div className='cartitems-total-item'>
@@ -72,10 +82,15 @@ const CartItems = () => {
             <hr />
             <div className='cartitems-total-item'>
               <h3>Total</h3>
-              <h3>{getTotalCartAmount()}đ</h3>
+              <h3>{formatCurrency(totalAmount)}</h3>
             </div>
           </div>
-          <button>PROCEED TO CHECKOUT</button>
+          <button
+            onClick={() => navigate('/checkout')}
+            disabled={!hasItemsInCart}
+          >
+            TIẾN HÀNH THANH TOÁN
+          </button>
         </div>
         <div className='cartitems-promocode'>
           <p>If you have a promo code, Enter it here</p>
@@ -85,6 +100,9 @@ const CartItems = () => {
           </div>
         </div>
       </div>
+      {!loadingProducts && !hasItemsInCart && (
+        <p className='cartitems-empty'>Giỏ hàng của bạn đang trống.</p>
+      )}
     </div>
   )
 }

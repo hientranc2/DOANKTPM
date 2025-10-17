@@ -79,6 +79,12 @@
     cursor: pointer;
 }
 
+.cartitems-total button:disabled {
+    background: #ffbaba;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
 .cartitems-promocode {
     flex: 1;
     font-size: 16px;
@@ -113,6 +119,13 @@
     background: black;
     color: white;
     cursor: pointer;
+}
+
+.cartitems-empty {
+    text-align: center;
+    padding: 40px 0;
+    color: #777;
+    font-weight: 500;
 }
 
 @media (max-width:1280px) {
