@@ -137,6 +137,23 @@ const orderSchema = new mongoose.Schema({
     enum: ['pending', 'processing', 'shipped'],
     default: 'pending',
   },
+  paymentStatus: {
+    type: String,
+    enum: ['pending', 'paid', 'failed'],
+    default: 'pending',
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['cash_on_delivery', 'credit_card'],
+    default: 'cash_on_delivery',
+  },
+  paymentReference: String,
+  paymentDetails: {
+    cardLast4: String,
+    cardholderName: String,
+  },
+  paidAt: Date,
+  shippingAddress: String,
   createdAt: {
     type: Date,
     default: Date.now,
@@ -146,6 +163,111 @@ const orderSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const Order = mongoose.model('Order', orderSchema);
 
+const allowedOrderStatuses = ['pending', 'processing', 'shipped'];
+const allowedPaymentStatuses = ['pending', 'paid', 'failed'];
+const allowedPaymentMethods = ['cash_on_delivery', 'credit_card'];
+
+const sanitizeOrderItems = (items) => {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+  return items
+    .map((item) => ({
+      productId: Number(item.productId) || 0,
+      name: item.name,
+      quantity: Number(item.quantity) || 0,
+      price: Number(item.price) || 0,
+    }))
+    .filter((item) => item.productId && item.quantity > 0 && item.price >= 0);
+};
+
+const calculateOrderTotal = (items) =>
+  items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+const parseDate = (value) => {
+  if (!value) {
+    return undefined;
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed;
+};
+
+const resolveCustomerInfo = async (customerId, fallbackName, fallbackEmail) => {
+  let customerRef = null;
+  let resolvedName = fallbackName;
+  let resolvedEmail = fallbackEmail;
+
+  if (customerId) {
+    const customer = await User.findById(customerId).lean();
+    if (customer) {
+      customerRef = customer._id;
+      resolvedName = customer.name;
+      resolvedEmail = customer.email;
+    }
+  }
+
+  return { customerRef, resolvedName, resolvedEmail };
+};
+
+const generateNextOrderId = async () => {
+  const lastOrder = await Order.findOne({}).sort({ orderId: -1 }).lean();
+  return lastOrder ? lastOrder.orderId + 1 : 1;
+};
+
+const sanitizeStoredPaymentDetails = (details) => {
+  if (!details) {
+    return undefined;
+  }
+  const sanitized = {};
+  if (details.cardLast4) {
+    sanitized.cardLast4 = String(details.cardLast4).slice(-4);
+  }
+  if (details.cardholderName) {
+    sanitized.cardholderName = String(details.cardholderName).trim();
+  }
+  return Object.keys(sanitized).length ? sanitized : undefined;
+};
+
+const validateCardDetails = (details = {}) => {
+  const rawNumber = String(details.cardNumber || '').replace(/\s+/g, '');
+  if (!/^\d{13,19}$/.test(rawNumber)) {
+    return { valid: false, message: 'Số thẻ không hợp lệ.' };
+  }
+
+  const cardholderName = String(details.cardholderName || '').trim();
+  if (cardholderName.length < 2) {
+    return { valid: false, message: 'Tên chủ thẻ không hợp lệ.' };
+  }
+
+  const month = Number(details.expiryMonth);
+  const year = Number(details.expiryYear);
+
+  if (!Number.isInteger(month) || month < 1 || month > 12) {
+    return { valid: false, message: 'Tháng hết hạn không hợp lệ.' };
+  }
+
+  if (!Number.isInteger(year) || year < 2000 || year > new Date().getFullYear() + 25) {
+    return { valid: false, message: 'Năm hết hạn không hợp lệ.' };
+  }
+
+  const now = new Date();
+  const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
+  if (endOfMonth < now) {
+    return { valid: false, message: 'Thẻ đã hết hạn.' };
+  }
+
+  if (!/^\d{3,4}$/.test(String(details.cvv || ''))) {
+    return { valid: false, message: 'Mã CVV không hợp lệ.' };
+  }
+
+  return {
+    valid: true,
+    sanitized: {
+      last4: rawNumber.slice(-4),
+      cardholderName,
+    },
+  };
+};
 app.post('/addproduct', async (req, res) => {
   try {
     const { name, image, category, new_price, old_price } = req.body;
@@ -328,6 +450,12 @@ const formatOrderResponse = (order) => ({
   status: order.status,
   total: order.total,
   createdAt: order.createdAt,
+  paymentStatus: order.paymentStatus,
+  paymentMethod: order.paymentMethod,
+  paymentReference: order.paymentReference,
+  paymentDetails: order.paymentDetails,
+  paidAt: order.paidAt,
+  shippingAddress: order.shippingAddress,
   customer: order.customer
     ? {
         id: order.customer._id,
@@ -354,35 +482,54 @@ app.get('/orders', async (req, res) => {
 
 app.post('/orders', async (req, res) => {
   try {
-    const { customerId, customerName, customerEmail, items = [], total = 0, status = 'pending' } = req.body;
-    const allowedStatuses = ['pending', 'processing', 'shipped'];
-    const normalizedStatus = allowedStatuses.includes(status) ? status : 'pending';
-    const lastOrder = await Order.findOne({}).sort({ orderId: -1 }).lean();
-    const orderId = lastOrder ? lastOrder.orderId + 1 : 1;
+    const {
+      customerId,
+      customerName,
+      customerEmail,
+      items = [],
+      total = 0,
+      status = 'pending',
+      paymentStatus = 'pending',
+      paymentMethod = 'cash_on_delivery',
+      paymentReference,
+      paidAt,
+      shippingAddress,
+      paymentDetails,
+    } = req.body;
 
-    let customerRef = null;
-    let resolvedName = customerName;
-    let resolvedEmail = customerEmail;
+    const normalizedStatus = allowedOrderStatuses.includes(status)
+      ? status
+      : 'pending';
+    const normalizedPaymentStatus = allowedPaymentStatuses.includes(paymentStatus)
+      ? paymentStatus
+      : 'pending';
+    const normalizedPaymentMethod = allowedPaymentMethods.includes(paymentMethod)
+      ? paymentMethod
+      : 'cash_on_delivery';
 
-    if (customerId) {
-      const customer = await User.findById(customerId).lean();
-      if (customer) {
-        customerRef = customer._id;
-        resolvedName = customer.name;
-        resolvedEmail = customer.email;
-      }
-    }
+    const orderId = await generateNextOrderId();
 
-    const sanitizedItems = Array.isArray(items)
-      ? items.map((item) => ({
-          productId: item.productId,
-          name: item.name,
-          quantity: Number(item.quantity) || 0,
-          price: Number(item.price) || 0,
-        }))
-      : [];
+    const { customerRef, resolvedName, resolvedEmail } = await resolveCustomerInfo(
+      customerId,
+      customerName,
+      customerEmail
+    );
 
-    const parsedTotal = Number(total) || 0;
+    const sanitizedItems = sanitizeOrderItems(items);
+    const computedTotal = calculateOrderTotal(sanitizedItems);
+    const parsedTotal = Number(total);
+    const finalTotal =
+      !Number.isNaN(parsedTotal) && parsedTotal > 0 ? parsedTotal : computedTotal;
+
+    const resolvedPaidAt =
+      normalizedPaymentStatus === 'paid'
+        ? parseDate(paidAt) || new Date()
+        : undefined;
+
+    const sanitizedPaymentDetails =
+      normalizedPaymentMethod === 'credit_card'
+        ? sanitizeStoredPaymentDetails(paymentDetails)
+        : undefined;
 
     const order = new Order({
       orderId,
@@ -390,8 +537,14 @@ app.post('/orders', async (req, res) => {
       customerName: resolvedName,
       customerEmail: resolvedEmail,
       items: sanitizedItems,
-      total: parsedTotal,
+      total: finalTotal,
       status: normalizedStatus,
+      paymentStatus: normalizedPaymentStatus,
+      paymentMethod: normalizedPaymentMethod,
+      paymentReference,
+      paidAt: resolvedPaidAt,
+      paymentDetails: sanitizedPaymentDetails,
+      shippingAddress: shippingAddress || undefined,
     });
 
     await order.save();
@@ -403,12 +556,106 @@ app.post('/orders', async (req, res) => {
   }
 });
 
+app.post('/checkout', async (req, res) => {
+  try {
+    const {
+      customerId,
+      customerName,
+      customerEmail,
+      items = [],
+      shippingAddress,
+      paymentMethod = 'cash_on_delivery',
+      paymentDetails = {},
+    } = req.body;
+
+    if (!customerName || !customerEmail) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Thiếu thông tin khách hàng.' });
+    }
+
+    const sanitizedItems = sanitizeOrderItems(items);
+    if (!sanitizedItems.length) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Giỏ hàng trống, không thể thanh toán.' });
+    }
+
+    const normalizedPaymentMethod = allowedPaymentMethods.includes(paymentMethod)
+      ? paymentMethod
+      : 'cash_on_delivery';
+
+    let paymentStatus = 'pending';
+    let paymentReference = undefined;
+    let resolvedPaidAt = undefined;
+    let sanitizedPaymentDetails = undefined;
+
+    if (normalizedPaymentMethod === 'credit_card') {
+      const cardValidation = validateCardDetails(paymentDetails);
+      if (!cardValidation.valid) {
+        return res
+          .status(400)
+          .json({ success: false, message: cardValidation.message });
+      }
+      paymentStatus = 'paid';
+      paymentReference = `PAY-${Date.now()}`;
+      resolvedPaidAt = new Date();
+      sanitizedPaymentDetails = {
+        cardLast4: cardValidation.sanitized.last4,
+        cardholderName: cardValidation.sanitized.cardholderName,
+      };
+    }
+
+    if (normalizedPaymentMethod === 'cash_on_delivery') {
+      paymentReference = `COD-${Date.now()}`;
+    }
+
+    const orderId = await generateNextOrderId();
+    const { customerRef, resolvedName, resolvedEmail } = await resolveCustomerInfo(
+      customerId,
+      customerName,
+      customerEmail
+    );
+
+    const total = calculateOrderTotal(sanitizedItems);
+    if (total <= 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Tổng thanh toán không hợp lệ.' });
+    }
+
+    const order = new Order({
+      orderId,
+      customer: customerRef,
+      customerName: resolvedName,
+      customerEmail: resolvedEmail,
+      items: sanitizedItems,
+      total,
+      status: 'pending',
+      paymentStatus,
+      paymentMethod: normalizedPaymentMethod,
+      paymentReference,
+      paidAt: resolvedPaidAt,
+      paymentDetails: sanitizedPaymentDetails,
+      shippingAddress: shippingAddress || undefined,
+    });
+
+    await order.save();
+    const populatedOrder = await order.populate('customer', 'name email status');
+
+    res.json({ success: true, order: formatOrderResponse(populatedOrder) });
+  } catch (error) {
+    console.error('Error processing checkout', error);
+    res.status(500).json({ success: false, message: 'Unable to process checkout.' });
+  }
+});
+
 app.patch('/orders/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
     const { status } = req.body;
 
-    if (!['pending', 'processing', 'shipped'].includes(status)) {
+    if (!allowedOrderStatuses.includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid order status.' });
     }
 

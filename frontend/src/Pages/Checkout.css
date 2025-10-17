@@ -1,0 +1,259 @@
+.checkout {
+  max-width: 1100px;
+  margin: 80px auto;
+  padding: 0 20px 80px;
+}
+
+.checkout h1 {
+  text-align: center;
+  font-size: 36px;
+  margin-bottom: 30px;
+}
+
+.checkout-content {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+}
+
+.checkout-summary,
+.checkout-form {
+  flex: 1;
+  background: #ffffff;
+  border: 1px solid #ececec;
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.05);
+}
+
+.checkout-summary h2 {
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.checkout-summary-items {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.checkout-summary-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  color: #333;
+}
+
+.checkout-summary-item-name {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.checkout-summary-item-qty {
+  color: #777;
+  font-size: 14px;
+}
+
+.checkout-summary-total {
+  font-weight: 700;
+  font-size: 20px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.checkout-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checkout-form-group label {
+  font-weight: 600;
+  color: #333;
+}
+
+.checkout-form-group input,
+.checkout-form-group textarea,
+.checkout-form-group select {
+  border: 1px solid #dcdcdc;
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 16px;
+  transition: border-color 0.2s ease;
+}
+
+.checkout-form-group input:focus,
+.checkout-form-group textarea:focus,
+.checkout-form-group select:focus {
+  outline: none;
+  border-color: #ff5a5a;
+  box-shadow: 0 0 0 3px rgba(255, 90, 90, 0.15);
+}
+
+.checkout-form-group textarea {
+  resize: vertical;
+}
+
+.checkout-form-row {
+  display: flex;
+  gap: 16px;
+}
+
+.checkout-form-row .checkout-form-group {
+  flex: 1;
+}
+
+.checkout-card-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.checkout-error {
+  color: #d93025;
+  background: #fde8e6;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.checkout-form button {
+  align-self: flex-start;
+  background: #ff5a5a;
+  color: white;
+  border: none;
+  padding: 14px 26px;
+  font-size: 16px;
+  font-weight: 600;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.checkout-form button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 18px rgba(255, 90, 90, 0.25);
+}
+
+.checkout-form button:disabled {
+  background: #ffbaba;
+  cursor: not-allowed;
+}
+
+.checkout-success {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e9e9e9;
+  padding: 40px 32px;
+  text-align: center;
+  box-shadow: 0 24px 40px rgba(0, 0, 0, 0.08);
+}
+
+.checkout-success h2 {
+  font-size: 28px;
+  margin-bottom: 16px;
+  color: #1a1a1a;
+}
+
+.checkout-success p {
+  margin-bottom: 10px;
+  color: #444;
+}
+
+.checkout-success-items {
+  margin: 20px 0 30px;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checkout-success-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: #333;
+}
+
+.checkout-success-total {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.checkout-success-link {
+  display: inline-block;
+  padding: 12px 24px;
+  border-radius: 999px;
+  background: #ff5a5a;
+  color: white;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.checkout-success-link:hover {
+  background: #ff4545;
+}
+
+.checkout-empty {
+  text-align: center;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid #ececec;
+  padding: 40px;
+  box-shadow: 0 18px 35px rgba(0, 0, 0, 0.05);
+}
+
+.checkout-empty p {
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+.checkout-empty a {
+  color: #ff5a5a;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.checkout-empty a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1024px) {
+  .checkout-content {
+    flex-direction: column;
+  }
+
+  .checkout-form button {
+    width: 100%;
+    text-align: center;
+  }
+}
+
+@media (max-width: 600px) {
+  .checkout {
+    margin: 40px auto 60px;
+  }
+
+  .checkout h1 {
+    font-size: 30px;
+  }
+
+  .checkout-summary,
+  .checkout-form {
+    padding: 22px;
+  }
+
+  .checkout-form-row {
+    flex-direction: column;
+  }
+}
