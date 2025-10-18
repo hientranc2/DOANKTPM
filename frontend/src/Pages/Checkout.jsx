@@ -1,8 +1,7 @@
-import React, { useContext, useMemo, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import './Checkout.css'
 import { ShopContext } from '../Context/ShopContext'
-import { API_BASE_URL } from '../config'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 const initialFormState = {
   name: '',
@@ -21,23 +20,30 @@ const paymentMethodLabels = {
   cash_on_delivery: 'Thanh toán khi nhận hàng'
 }
 
-const paymentStatusLabels = {
-  paid: 'Đã thanh toán',
-  pending: 'Chờ thanh toán',
-  failed: 'Thanh toán thất bại'
-}
-
 const formatCurrency = (value) => {
   const amount = Number(value) || 0
   return `${amount.toLocaleString('vi-VN')}đ`
 }
 
+const formatDeliveryDate = (date) =>
+  date.toLocaleDateString('vi-VN', {
+    weekday: 'long',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  })
+
+const createOrderCode = () => `NK${Date.now().toString().slice(-6)}`
+
 const Checkout = () => {
+  const navigate = useNavigate()
   const { cartItems, products, clearCart } = useContext(ShopContext)
   const [formData, setFormData] = useState(initialFormState)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [order, setOrder] = useState(null)
+  const [paymentComplete, setPaymentComplete] = useState(false)
+  const [orderSummary, setOrderSummary] = useState(null)
+  const paymentTimeoutRef = useRef(null)
 
   const items = useMemo(
     () =>
@@ -57,6 +63,18 @@ const Checkout = () => {
     () => items.reduce((sum, item) => sum + item.price * item.quantity, 0),
     [items]
   )
+
+  const paymentStepClass = `checkout-step ${paymentComplete ? 'completed' : 'current'}`
+  const confirmationStepClass = `checkout-step ${paymentComplete ? 'completed' : ''}`
+
+  useEffect(() => {
+    if (!paymentComplete) {
+      return
+    }
+
+    const redirectTimer = setTimeout(() => navigate('/'), 4000)
+    return () => clearTimeout(redirectTimer)
+  }, [paymentComplete, navigate])
 
   const handleInputChange = (event) => {
     const { name, value } = event.target
@@ -100,7 +118,7 @@ const Checkout = () => {
     }))
   }
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault()
 
     if (!hasItems) {
@@ -129,91 +147,134 @@ const Checkout = () => {
     setSubmitting(true)
     setError('')
 
-    try {
-      const payload = {
-        customerName: formData.name.trim(),
-        customerEmail: formData.email.trim(),
-        shippingAddress: formData.address.trim(),
-        paymentMethod: formData.paymentMethod,
-        items: items.map((item) => ({
-          productId: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price
-        })),
-        total
-      }
-
-      if (formData.paymentMethod === 'credit_card') {
-        payload.paymentDetails = {
-          cardNumber: formData.cardNumber.replace(/\s+/g, ''),
-          cardholderName: formData.cardholderName.trim(),
-          expiryMonth: formData.expiryMonth,
-          expiryYear: formData.expiryYear,
-          cvv: formData.cvv
-        }
-      }
-
-      const response = await fetch(`${API_BASE_URL}/checkout`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(payload)
-      })
-
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || 'Thanh toán thất bại, vui lòng thử lại.')
-      }
-
-      setOrder(data.order)
-      clearCart()
-      setFormData(initialFormState)
-    } catch (submitError) {
-      setError(submitError.message || 'Thanh toán thất bại, vui lòng thử lại.')
-    } finally {
-      setSubmitting(false)
-    }
+    processPayment()
   }
 
-  if (order) {
+  const processPayment = () => {
+    if (paymentTimeoutRef.current) {
+      clearTimeout(paymentTimeoutRef.current)
+    }
+
+    const estimatedDelivery = new Date()
+    estimatedDelivery.setDate(estimatedDelivery.getDate() + 3)
+
+    const simulatedOrder = {
+      orderCode: createOrderCode(),
+      customerName: formData.name.trim(),
+      customerEmail: formData.email.trim(),
+      shippingAddress: formData.address.trim(),
+      paymentMethod: formData.paymentMethod,
+      items: items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        subtotal: item.price * item.quantity
+      })),
+      total,
+      estimatedDelivery: formatDeliveryDate(estimatedDelivery)
+    }
+
+    paymentTimeoutRef.current = setTimeout(() => {
+      setSubmitting(false)
+      setOrderSummary(simulatedOrder)
+      setPaymentComplete(true)
+      clearCart()
+      setFormData(initialFormState)
+      paymentTimeoutRef.current = null
+    }, 1200)
+  }
+
+  useEffect(
+    () => () => {
+      if (paymentTimeoutRef.current) {
+        clearTimeout(paymentTimeoutRef.current)
+      }
+    },
+    []
+  )
+
+  if (paymentComplete && orderSummary) {
     return (
-      <div className='checkout'>
-        <h1>Thanh toán</h1>
-        <div className='checkout-success'>
-          <h2>Thanh toán thành công!</h2>
-          <p>
-            Mã đơn hàng: <strong>#{order.orderId}</strong>
+      <div className='checkout checkout--success'>
+        <div className='checkout-success checkout-success--full'>
+          <div className='checkout-success-icon' aria-hidden='true'>
+            <svg viewBox='0 0 24 24' role='img'>
+              <path
+                fill='currentColor'
+                d='M9.5 16.17 5.33 12l-1.41 1.41 5.58 5.58L20.5 7.99 19.09 6.58z'
+              />
+            </svg>
+          </div>
+          <h2>THANH TOÁN THÀNH CÔNG</h2>
+          <p className='checkout-success-note'>
+            Đơn hàng <strong>#{orderSummary.orderCode}</strong> của bạn đã được xác nhận. Bạn sẽ được
+            chuyển hướng về trang chủ trong giây lát.
           </p>
-          <p>
-            Trạng thái thanh toán: {paymentStatusLabels[order.paymentStatus] || order.paymentStatus}
-          </p>
-          <p>Phương thức: {paymentMethodLabels[order.paymentMethod] || order.paymentMethod}</p>
-          {order.paymentDetails?.cardLast4 && (
-            <p>Thẻ thanh toán: **** **** **** {order.paymentDetails.cardLast4}</p>
-          )}
-          {order.shippingAddress && <p>Giao tới: {order.shippingAddress}</p>}
+
+          <div className='checkout-success-meta'>
+            <div className='checkout-success-meta-card'>
+              <h3>Người nhận</h3>
+              <p>{orderSummary.customerName}</p>
+              <span>{orderSummary.customerEmail}</span>
+            </div>
+            <div className='checkout-success-meta-card'>
+              <h3>Địa chỉ giao hàng</h3>
+              <p>{orderSummary.shippingAddress}</p>
+              <span>Giao dự kiến: {orderSummary.estimatedDelivery}</span>
+            </div>
+            <div className='checkout-success-meta-card'>
+              <h3>Phương thức</h3>
+              <p>{paymentMethodLabels[orderSummary.paymentMethod]}</p>
+            </div>
+          </div>
+
           <div className='checkout-success-items'>
-            {order.items.map((item) => (
-              <div key={`${order.orderId}-${item.productId}`} className='checkout-success-item'>
-                <span>{item.name}</span>
-                <span>x{item.quantity}</span>
-                <span>{formatCurrency(item.price * item.quantity)}</span>
+            {orderSummary.items.map((item) => (
+              <div key={`${orderSummary.orderCode}-${item.id}`} className='checkout-success-item'>
+                <div>
+                  <span className='checkout-success-item-name'>{item.name}</span>
+                  <span className='checkout-success-item-qty'>Số lượng: {item.quantity}</span>
+                </div>
+                <span>{formatCurrency(item.subtotal)}</span>
               </div>
             ))}
           </div>
-          <div className='checkout-success-total'>Tổng cộng: {formatCurrency(order.total)}</div>
-          <Link className='checkout-success-link' to='/'>Tiếp tục mua sắm</Link>
+          <div className='checkout-success-total'>Tổng cộng: {formatCurrency(orderSummary.total)}</div>
+
+          <div className='checkout-success-actions'>
+            <button type='button' onClick={() => navigate('/')}>Về trang chủ ngay</button>
+          </div>
         </div>
       </div>
     )
   }
 
+
   return (
     <div className='checkout'>
-      <h1>Thanh toán</h1>
+      <div className='checkout-header'>
+        <h1>Thanh toán</h1>
+        <p>Hoàn tất đơn hàng của bạn với trải nghiệm nhanh chóng và tinh gọn như Nike.</p>
+      </div>
+
+      {hasItems && (
+        <div className='checkout-steps'>
+          <div className='checkout-step completed'>
+            <span className='checkout-step-index'>1</span>
+            <span>Giỏ hàng</span>
+          </div>
+          <div className={paymentStepClass}>
+            <span className='checkout-step-index'>2</span>
+            <span>Thanh toán</span>
+          </div>
+          <div className={confirmationStepClass}>
+            <span className='checkout-step-index'>3</span>
+            <span>Hoàn tất</span>
+          </div>
+        </div>
+      )}
+
       {!hasItems ? (
         <div className='checkout-empty'>
           <p>Giỏ hàng của bạn đang trống.</p>
