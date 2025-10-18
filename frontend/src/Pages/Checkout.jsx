@@ -1,7 +1,8 @@
-import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useState } from 'react'
 import './Checkout.css'
 import { ShopContext } from '../Context/ShopContext'
 import { Link, useNavigate } from 'react-router-dom'
+import { API_BASE_URL } from '../config'
 
 const initialFormState = {
   name: '',
@@ -43,7 +44,6 @@ const Checkout = () => {
   const [error, setError] = useState('')
   const [paymentComplete, setPaymentComplete] = useState(false)
   const [orderSummary, setOrderSummary] = useState(null)
-  const paymentTimeoutRef = useRef(null)
 
   const items = useMemo(
     () =>
@@ -118,7 +118,7 @@ const Checkout = () => {
     }))
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
 
     if (!hasItems) {
@@ -147,52 +147,106 @@ const Checkout = () => {
     setSubmitting(true)
     setError('')
 
-    processPayment()
+    try {
+      const order = await processPayment()
+      const summary = buildOrderSummary(order)
+      setOrderSummary(summary)
+      setPaymentComplete(true)
+      clearCart()
+      setFormData(initialFormState)
+    } catch (err) {
+      console.error('Checkout failed', err)
+      setError(err.message || 'Không thể xử lý thanh toán, vui lòng thử lại.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const processPayment = () => {
-    if (paymentTimeoutRef.current) {
-      clearTimeout(paymentTimeoutRef.current)
-    }
-
-    const estimatedDelivery = new Date()
-    estimatedDelivery.setDate(estimatedDelivery.getDate() + 3)
-
-    const simulatedOrder = {
-      orderCode: createOrderCode(),
+  const processPayment = async () => {
+    const payload = {
       customerName: formData.name.trim(),
       customerEmail: formData.email.trim(),
       shippingAddress: formData.address.trim(),
       paymentMethod: formData.paymentMethod,
       items: items.map((item) => ({
-        id: item.id,
+        productId: item.id,
         name: item.name,
         quantity: item.quantity,
-        price: item.price,
-        subtotal: item.price * item.quantity
+        price: item.price
       })),
-      total,
-      estimatedDelivery: formatDeliveryDate(estimatedDelivery)
+      total
     }
 
-    paymentTimeoutRef.current = setTimeout(() => {
-      setSubmitting(false)
-      setOrderSummary(simulatedOrder)
-      setPaymentComplete(true)
-      clearCart()
-      setFormData(initialFormState)
-      paymentTimeoutRef.current = null
-    }, 1200)
+    if (formData.paymentMethod === 'credit_card') {
+      payload.paymentDetails = {
+        cardNumber: formData.cardNumber.replace(/\s+/g, ''),
+        cardholderName: formData.cardholderName.trim(),
+        expiryMonth: formData.expiryMonth.trim(),
+        expiryYear: formData.expiryYear.trim(),
+        cvv: formData.cvv.trim()
+      }
+    }
+
+    let response
+    try {
+      response = await fetch(`${API_BASE_URL}/checkout`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+    } catch (err) {
+      throw new Error('Không thể kết nối tới máy chủ. Vui lòng kiểm tra lại mạng.')
+    }
+
+    let data = null
+    try {
+      data = await response.json()
+    } catch (err) {
+      throw new Error('Máy chủ phản hồi không hợp lệ.')
+    }
+
+    if (!response.ok || !data?.success) {
+      throw new Error(data?.message || 'Thanh toán không thành công.')
+    }
+
+    return data.order
   }
 
-  useEffect(
-    () => () => {
-      if (paymentTimeoutRef.current) {
-        clearTimeout(paymentTimeoutRef.current)
+  const buildOrderSummary = (order) => {
+    const estimatedDelivery = new Date()
+    estimatedDelivery.setDate(estimatedDelivery.getDate() + 3)
+
+    const resolvedItems = (order?.items || items).map((item, index) => {
+      const quantity = Number(item.quantity ?? items[index]?.quantity ?? 0)
+      const price = Number(item.price ?? items[index]?.price ?? 0)
+      return {
+        id: item.productId ?? item.id ?? items[index]?.id ?? index,
+        name: item.name || items[index]?.name || `Sản phẩm #${index + 1}`,
+        quantity,
+        price,
+        subtotal: price * quantity
       }
-    },
-    []
-  )
+    })
+
+    return {
+      orderId: order?.orderId,
+      orderCode:
+        order?.paymentReference ||
+        (order?.orderId ? `ĐH${String(order.orderId).padStart(6, '0')}` : createOrderCode()),
+      customerName:
+        order?.customer?.name || order?.customerName || formData.name.trim(),
+      customerEmail:
+        order?.customer?.email || order?.customerEmail || formData.email.trim(),
+      shippingAddress: order?.shippingAddress || formData.address.trim(),
+      paymentMethod: order?.paymentMethod || formData.paymentMethod,
+      items: resolvedItems,
+      total: Number(order?.total ?? total) || 0,
+      estimatedDelivery: formatDeliveryDate(estimatedDelivery)
+    }
+  }
 
   if (paymentComplete && orderSummary) {
     return (
