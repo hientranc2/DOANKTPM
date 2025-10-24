@@ -1,21 +1,29 @@
 import React, { useContext, useRef, useState } from 'react'
 import './Navbar.css'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import logo from '../assests/logo.png'
 import cart_icon from '../assests/cart_icon.png'
 import { ShopContext } from '../../Context/ShopContext'
 import nav_dropdown from '../assests/nav_dropdown.png'
+import { AuthContext } from '../../Context/AuthContext'
 
 const Navbar = () => {
 
     const [menu, setMenu] = useState("Cửa hàng")
     const { getTotalCartItems } = useContext(ShopContext);
     const menuRef = useRef();
+    const navigate = useNavigate();
+    const { user, logout } = useContext(AuthContext);
 
     const dropdown_toggle = (e) => {
         menuRef.current.classList.toggle('nav-menu-visible');
         e.target.classList.toggle('open');
+    }
+
+    const handleLogout = () => {
+        logout();
+        navigate('/login');
     }
 
     return (
@@ -32,7 +40,14 @@ const Navbar = () => {
                 <li onClick={() => { setMenu("Trẻ em") }}><Link to='/kids' style={{ textDecoration: 'none' }} >Trẻ em</Link>{menu === "Trẻ em" ? <hr /> : <></>}</li>
             </ul>
             <div className="nav-login-cart">
-                <Link to='/login'><button>Đăng nhập</button></Link>
+                {user ? (
+                    <>
+                        <span className='nav-user-name'>Xin chào, {user.name}</span>
+                        <button onClick={handleLogout}>Đăng xuất</button>
+                    </>
+                ) : (
+                    <Link to='/login'><button>Đăng nhập</button></Link>
+                )}
                 <Link to='/cart'><img src={cart_icon} alt='' /></Link>
                 <div className="nav-cart-count">{getTotalCartItems()}</div>
             </div>
