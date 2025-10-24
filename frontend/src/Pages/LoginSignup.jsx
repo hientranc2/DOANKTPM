@@ -1,6 +1,8 @@
-import React, { useState } from 'react'
+import React, { useContext, useState } from 'react'
 import './CSS/LoginSignup.css'
 import { API_BASE_URL } from '../config'
+import { useNavigate } from 'react-router-dom'
+import { AuthContext } from '../Context/AuthContext'
 
 const LoginSignup = () => {
   const [mode, setMode] = useState('signup')
@@ -8,6 +10,8 @@ const LoginSignup = () => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const navigate = useNavigate()
+  const { login: authenticate } = useContext(AuthContext)
 
   const toggleMode = () => {
     setMode((prev) => (prev === 'signup' ? 'login' : 'signup'))
@@ -48,17 +52,13 @@ const LoginSignup = () => {
         throw new Error(data.message || 'Không thể xử lý yêu cầu.')
       }
 
-      if (data.token) {
-        localStorage.setItem('auth_token', data.token)
-      }
-      setSuccess(
-        mode === 'signup'
-          ? 'Đăng ký thành công! Bạn có thể đăng nhập ngay bây giờ.'
-          : 'Đăng nhập thành công!'
-      )
       if (mode === 'signup') {
+        setSuccess('Đăng ký thành công! Bạn có thể đăng nhập ngay bây giờ.')
         setForm({ name: '', email: '', password: '' })
         setMode('login')
+      } else if (data.token && data.user) {
+        authenticate(data.token, data.user)
+        navigate('/', { replace: true })
       }
     } catch (err) {
       setError(err.message)
@@ -70,13 +70,13 @@ const LoginSignup = () => {
   return (
     <div className='loginsignup'>
       <div className='loginsignup-container'>
-        <h1>{mode === 'signup' ? 'Sign Up' : 'Login'}</h1>
+        <h1>{mode === 'signup' ? 'Đăng ký' : 'Đăng nhập'}</h1>
         <form className='loginsignup-fields' onSubmit={handleSubmit}>
           {mode === 'signup' && (
             <input
               type='text'
               name='name'
-              placeholder='Your Name'
+              placeholder='Họ và tên'
               value={form.name}
               onChange={handleChange}
               required
@@ -85,7 +85,7 @@ const LoginSignup = () => {
           <input
             type='email'
             name='email'
-            placeholder='Email Address'
+            placeholder='Địa chỉ email'
             value={form.email}
             onChange={handleChange}
             required
@@ -93,24 +93,31 @@ const LoginSignup = () => {
           <input
             type='password'
             name='password'
-            placeholder='Password'
+            placeholder='Mật khẩu'
             value={form.password}
             onChange={handleChange}
             required
           />
           <button type='submit' disabled={loading}>
-            {loading ? 'Processing...' : mode === 'signup' ? 'Continue' : 'Login'}
+            {loading ? 'Đang xử lý...' : mode === 'signup' ? 'Tiếp tục' : 'Đăng nhập'}
           </button>
         </form>
         {error && <p className='loginsignup-message error'>{error}</p>}
         {success && <p className='loginsignup-message success'>{success}</p>}
         <p className='loginsignup-login'>
-          {mode === 'signup' ? 'Already have an account?' : "Chưa có tài khoản?"}{' '}
-          <span onClick={toggleMode}>{mode === 'signup' ? 'Login here' : 'Đăng ký ngay'}</span>
+          {mode === 'signup'
+            ? 'Đã có tài khoản?'
+            : 'Chưa có tài khoản?'}{' '}
+          <span onClick={toggleMode}>
+            {mode === 'signup' ? 'Đăng nhập ngay' : 'Đăng ký ngay'}
+          </span>
         </p>
         <div className='loginsignup-agree'>
           <input type='checkbox' name='' id='' />
-          <p>By continuing, I agree to the terms of use & privacy policy</p>
+          <p>
+            Bằng cách tiếp tục, tôi đồng ý với điều khoản sử dụng và chính sách
+            bảo mật
+          </p>
         </div>
       </div>
     </div>

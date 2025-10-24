@@ -52,6 +52,13 @@
     gap: 45px;
 }
 
+.nav-user-name {
+    color: #171717;
+    font-size: 18px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
 .nav-login-cart button {
     width: 157px;
     height: 58px;
@@ -137,6 +144,10 @@
         font-size: 14px;
     }
 
+    .nav-user-name {
+        font-size: 14px;
+    }
+
     .nav-login-cart img {
         width: 30px;
     }
@@ -195,6 +206,10 @@
 
     .nav-login-cart {
         transform: scale(0.8);
+    }
+
+    .nav-user-name {
+        font-size: 12px;
     }
 
 }
