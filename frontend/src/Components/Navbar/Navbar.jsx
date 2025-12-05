@@ -27,7 +27,27 @@ const Navbar = () => {
 
     const handleSearchSubmit = (event) => {
         event.preventDefault();
-    }
+
+        const keyword = searchTerm.trim();
+
+        if (keyword) {
+            navigate(`/search?query=${encodeURIComponent(keyword)}`);
+        } else {
+            navigate('/');
+        }
+    };
+
+    const handleSearchChange = (event) => {
+        const value = event.target.value;
+        setSearchTerm(value);
+
+        const keyword = value.trim();
+        if (keyword) {
+            navigate(`/search?query=${encodeURIComponent(keyword)}`);
+        } else {
+            navigate('/');
+        }
+    };
 
     return (
         <div className='navbar'>
@@ -49,7 +69,7 @@ const Navbar = () => {
                         className='nav-search-input'
                         placeholder='Tìm sản phẩm...'
                         value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
+                        onChange={handleSearchChange}
                     />
                 </form>
 
