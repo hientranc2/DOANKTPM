@@ -28,26 +28,14 @@ const Navbar = () => {
     const handleSearchSubmit = (event) => {
         event.preventDefault();
 
-        const keyword = searchTerm.trim();
+        const keyword = searchTerm.trim()
 
         if (keyword) {
-            navigate(`/search?query=${encodeURIComponent(keyword)}`);
+            navigate(`/search?query=${encodeURIComponent(keyword)}`)
         } else {
-            navigate('/');
+            navigate('/')
         }
-    };
-
-    const handleSearchChange = (event) => {
-        const value = event.target.value;
-        setSearchTerm(value);
-
-        const keyword = value.trim();
-        if (keyword) {
-            navigate(`/search?query=${encodeURIComponent(keyword)}`);
-        } else {
-            navigate('/');
-        }
-    };
+    }
 
     return (
         <div className='navbar'>
