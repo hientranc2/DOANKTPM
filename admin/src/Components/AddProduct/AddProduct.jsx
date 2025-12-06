@@ -4,17 +4,19 @@ import upload_area from '../../assets/upload_area.svg';
 import { API_BASE_URL } from '../../config';
 
 const AddProduct = () => {
-  const [image, setImage] = useState(false);
+  const [images, setImages] = useState([]);
   const [productDetails, setProductDetails] = useState({
     name: '',
     image: '',
+    images: [],
     category: 'women',
     new_price: '',
     old_price: '',
   });
 
   const imageHandler = (e) => {
-    setImage(e.target.files[0]);
+    const files = Array.from(e.target.files || []);
+    setImages(files);
   };
 
   const changeHandler = (e) => {
@@ -22,48 +24,54 @@ const AddProduct = () => {
   };
 
   const Add_Product = async () => {
-    console.log('Sending product:', productDetails);
+    if (!images.length) {
+      alert('Vui lòng chọn ít nhất một ảnh sản phẩm.');
+      return;
+    }
 
-    let responseData;
-    let product = { ...productDetails };
+    try {
+      const uploadedUrls = [];
 
-    // 1️⃣ Upload ảnh
-    let formData = new FormData();
-    formData.append('product', image);
+      for (const file of images) {
+        const formData = new FormData();
+        formData.append('product', file);
 
-    await fetch(`${API_BASE_URL}/upload`, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-      },
-      body: formData,
-    })
-      .then((resp) => resp.json())
-      .then((data) => {
-        responseData = data;
-      })
-      .catch((err) => console.error('Upload failed:', err));
+        // eslint-disable-next-line no-await-in-loop
+        const uploadResp = await fetch(`${API_BASE_URL}/upload`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+          },
+          body: formData,
+        });
 
-    // 2️⃣ Nếu upload ảnh thành công, tiếp tục add product
-    if (responseData && responseData.success) {
-      product.image = responseData.image_url;
-      console.log('Image uploaded:', product.image);
+        const uploadData = await uploadResp.json();
+        if (!uploadData.success) {
+          throw new Error('Upload failed');
+        }
+        uploadedUrls.push(uploadData.image_url);
+      }
 
-      await fetch(`${API_BASE_URL}/addproduct`, {
+      const product = {
+        ...productDetails,
+        images: uploadedUrls,
+        image: uploadedUrls[0],
+      };
+
+      const response = await fetch(`${API_BASE_URL}/addproduct`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(product),
-      })
-        .then((resp) => resp.json())
-        .then((data) => {
-          data.success ? alert('✅ Product Added') : alert('❌ Failed to add');
-        })
-        .catch((err) => console.error('Add product failed:', err));
-    } else {
-      alert('❌ Image upload failed');
+      });
+
+      const data = await response.json();
+      data.success ? alert('✅ Product Added') : alert('❌ Failed to add');
+    } catch (error) {
+      console.error('Add product failed:', error);
+      alert('❌ Không thể thêm sản phẩm. Vui lòng thử lại.');
     }
   };
 
@@ -119,15 +127,26 @@ const AddProduct = () => {
 
       <div className="addproduct-itemfield">
         <label htmlFor="file-input">
-          <img
-            src={image ? URL.createObjectURL(image) : upload_area}
-            className="addproduct-thumnail-img"
-            alt=""
-          />
+          <div className="addproduct-thumnail-img">
+            {images.length ? (
+              <div className="addproduct-image-preview">
+                {images.map((file, index) => (
+                  <img
+                    key={file.name + index}
+                    src={URL.createObjectURL(file)}
+                    alt="Preview"
+                  />
+                ))}
+              </div>
+            ) : (
+              <img src={upload_area} alt="Upload placeholder" />
+            )}
+          </div>
         </label>
         <input
           onChange={imageHandler}
           type="file"
+          multiple
           name="image"
           id="file-input"
           hidden

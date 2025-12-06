@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS products (
     id SERIAL PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     image VARCHAR(255),
+    images JSONB DEFAULT '[]',
     category VARCHAR(100),
     new_price DECIMAL(10, 2) NOT NULL,
     old_price DECIMAL(10, 2),

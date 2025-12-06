@@ -35,10 +35,26 @@ const ShopContextProvider = (props) => {
       const data = await response.json();
 
       if (Array.isArray(data) && data.length > 0) {
-        const normalizedProducts = data.map((product) => ({
-          ...product,
-          image: resolveImageUrl(product.image),
-        }));
+        const normalizedProducts = data.map((product) => {
+          const normalizedImages = Array.isArray(product.images)
+            ? product.images
+                .map((img) => resolveImageUrl(img))
+                .filter(Boolean)
+            : []
+
+          const primaryImage = resolveImageUrl(product.image)
+          const images = normalizedImages.length
+            ? normalizedImages
+            : primaryImage
+              ? [primaryImage]
+              : []
+
+          return {
+            ...product,
+            images,
+            image: images[0] || primaryImage || '',
+          }
+        })
         setProducts(normalizedProducts);
         setError('');
       } else {
