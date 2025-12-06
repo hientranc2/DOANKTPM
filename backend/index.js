@@ -36,6 +36,24 @@ const ensureSchemaAndAdminUser = async () => {
 
   await pool.query("UPDATE users SET role = 'customer' WHERE role IS NULL");
 
+  await pool.query(`
+    ALTER TABLE products
+    ADD COLUMN IF NOT EXISTS images JSONB DEFAULT '[]'::jsonb
+  `);
+
+  await pool.query(`
+    UPDATE products
+    SET images = CASE
+      WHEN images IS NULL THEN CASE WHEN image IS NOT NULL THEN jsonb_build_array(image) ELSE '[]'::jsonb END
+      WHEN jsonb_typeof(images) != 'array' THEN '[]'::jsonb
+      ELSE images
+    END,
+    image = CASE
+      WHEN image IS NULL AND images IS NOT NULL AND jsonb_typeof(images) = 'array' AND jsonb_array_length(images) > 0 THEN images->>0
+      ELSE image
+    END
+  `);
+
   const adminResult = await pool.query('SELECT id, role FROM users WHERE email = $1', [DEFAULT_ADMIN_EMAIL]);
 
   if (adminResult.rowCount === 0) {
@@ -103,19 +121,25 @@ app.post('/upload', upload.single('product'), (req, res) => {
 // ADD PRODUCT
 app.post('/addproduct', async (req, res) => {
   try {
-    const { name, image, category, new_price, old_price } = req.body;
+    const { name, image, images = [], category, new_price, old_price } = req.body;
+    const normalizedImages = Array.isArray(images)
+      ? images.filter((img) => typeof img === 'string' && img.trim().length > 0)
+      : [];
+    const primaryImage = normalizedImages[0] || image;
     const parsedNewPrice = Number(new_price);
     const parsedOldPrice = Number(old_price);
 
-    if (!name || !image || !category || Number.isNaN(parsedNewPrice) || Number.isNaN(parsedOldPrice)) {
+    if (!name || !primaryImage || !category || Number.isNaN(parsedNewPrice) || Number.isNaN(parsedOldPrice)) {
       return res.status(400).json({ success: false, message: 'Missing required product fields.' });
     }
 
+    const imagesToSave = normalizedImages.length > 0 ? normalizedImages : [primaryImage];
+
     const result = await pool.query(
-      `INSERT INTO products (name, image, category, new_price, old_price)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO products (name, image, images, category, new_price, old_price)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [name, image, category, parsedNewPrice, parsedOldPrice]
+      [name, primaryImage, imagesToSave, category, parsedNewPrice, parsedOldPrice]
     );
 
     res.json({
@@ -157,7 +181,7 @@ app.post('/removeproduct', async (req, res) => {
 app.put('/product/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    let { name, image, category, new_price, old_price, available } = req.body;
+    let { name, image, images, category, new_price, old_price, available } = req.body;
 
     const fields = [];
     const values = [];
@@ -170,6 +194,17 @@ app.put('/product/:id', async (req, res) => {
     if (image !== undefined) {
       fields.push(`image = $${idx++}`);
       values.push(image);
+    }
+    if (images !== undefined) {
+      const normalizedImages = Array.isArray(images)
+        ? images.filter((img) => typeof img === 'string' && img.trim().length > 0)
+        : [];
+      fields.push(`images = $${idx++}`);
+      values.push(normalizedImages);
+      if (!image && normalizedImages.length > 0) {
+        fields.push(`image = $${idx++}`);
+        values.push(normalizedImages[0]);
+      }
     }
     if (category !== undefined) {
       fields.push(`category = $${idx++}`);

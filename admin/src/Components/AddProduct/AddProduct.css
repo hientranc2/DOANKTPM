@@ -41,12 +41,31 @@
     border-radius: 4px; 
 }
 .addproduct-thumnail-img{
-    height: 120px;
-    width:  120px;
+    min-height: 120px;
+    min-width: 120px;
+    max-width: 320px;
     border-radius: 10px;
-    object-fit: contain;
     margin: 10px 0px;
+    border: 1px dashed #c3c3c3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+}
 
+.addproduct-image-preview{
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 8px;
+    width: 100%;
+}
+
+.addproduct-image-preview img{
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
 }
 .addproduct-btn{
     margin-top: 20px;
