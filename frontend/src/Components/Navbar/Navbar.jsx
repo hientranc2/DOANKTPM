@@ -1,4 +1,4 @@
-import React, { useContext, useRef, useState } from 'react'
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import './Navbar.css'
 import { Link, useNavigate } from 'react-router-dom'
 
@@ -10,8 +10,10 @@ import { AuthContext } from '../../Context/AuthContext'
 
 const Navbar = () => {
     const [menu, setMenu] = useState("Cửa hàng")
-    const { getTotalCartItems, searchTerm, setSearchTerm } = useContext(ShopContext);
+    const [showSuggestions, setShowSuggestions] = useState(false)
+    const { getTotalCartItems, products, searchTerm, setSearchTerm } = useContext(ShopContext);
     const menuRef = useRef();
+    const suggestionRef = useRef(null)
     const navigate = useNavigate();
     const { user, logout } = useContext(AuthContext);
 
@@ -32,10 +34,43 @@ const Navbar = () => {
 
         if (keyword) {
             navigate(`/search?query=${encodeURIComponent(keyword)}`)
+            setShowSuggestions(false)
         } else {
             navigate('/')
         }
     }
+
+    const filteredSuggestions = useMemo(() => {
+        const keyword = searchTerm.trim().toLowerCase()
+
+        if (!keyword) return []
+
+        return products
+            .filter((product) =>
+                String(product.name || '').toLowerCase().includes(keyword)
+            )
+            .slice(0, 6)
+    }, [products, searchTerm])
+
+    const handleSelectSuggestion = (product) => {
+        setSearchTerm(product.name)
+        setShowSuggestions(false)
+        navigate(`/product/${product.id}`)
+    }
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (suggestionRef.current && !suggestionRef.current.contains(event.target)) {
+                setShowSuggestions(false)
+            }
+        }
+
+        document.addEventListener('mousedown', handleClickOutside)
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside)
+        }
+    }, [])
 
     return (
         <div className='navbar'>
@@ -51,15 +86,44 @@ const Navbar = () => {
                 <li onClick={() => { setMenu("Trẻ em") }}><Link to='/kids' style={{ textDecoration: 'none' }} >Trẻ em</Link>{menu === "Trẻ em" ? <hr /> : <></>}</li>
             </ul>
             <div className="nav-actions">
-                <form className='nav-search' onSubmit={handleSearchSubmit}>
-                    <input
-                        type="text"
-                        className='nav-search-input'
-                        placeholder='Tìm sản phẩm...'
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </form>
+                <div className='nav-search-wrapper' ref={suggestionRef}>
+                    <form className='nav-search' onSubmit={handleSearchSubmit}>
+                        <input
+                            type="text"
+                            className='nav-search-input'
+                            placeholder='Tìm sản phẩm...'
+                            value={searchTerm}
+                            onChange={(e) => {
+                                setSearchTerm(e.target.value)
+                                setShowSuggestions(Boolean(e.target.value.trim()))
+                            }}
+                            onFocus={() => setShowSuggestions(Boolean(searchTerm.trim()))}
+                        />
+                    </form>
+
+                    {showSuggestions && filteredSuggestions.length > 0 && (
+                        <div className='nav-search-suggestions'>
+                            <p className='nav-search-suggestion-title'>Gợi ý nhanh</p>
+                            <ul>
+                                {filteredSuggestions.map((product) => (
+                                    <li
+                                        key={product.id}
+                                        className='nav-search-suggestion-item'
+                                        onClick={() => handleSelectSuggestion(product)}
+                                    >
+                                        <img src={product.image} alt={product.name} />
+                                        <div className='nav-search-suggestion-info'>
+                                            <span className='nav-search-suggestion-name'>{product.name}</span>
+                                            <span className='nav-search-suggestion-price'>
+                                                {Number(product.new_price).toLocaleString('vi-VN')} ₫
+                                            </span>
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </div>
 
                 <div className="nav-login-cart">
                     {user ? (
