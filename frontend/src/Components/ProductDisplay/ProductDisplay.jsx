@@ -39,6 +39,9 @@ const ProductDisplay = (props) => {
     return null
   }
 
+  // Ảnh chính hiển thị trong modal phản hồi
+  const productImage = activeImage || resolvedImages[0] || ''
+
   const handleAddToCart = () => {
     if (!selectedSize) {
       setSizeError('Vui lòng chọn kích thước trước khi thêm vào giỏ hàng.')
