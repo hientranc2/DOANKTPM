@@ -7,9 +7,14 @@ const normalizeBaseUrl = (url) => {
 
 const DEFAULT_API_BASE_URL = 'http://localhost:4000'
 
-export const API_BASE_URL = normalizeBaseUrl(
-  process.env.REACT_APP_API_BASE_URL || DEFAULT_API_BASE_URL
+// Ưu tiên REACT_APP_API_URL (theo yêu cầu), fallback REACT_APP_API_BASE_URL rồi tới mặc định.
+export const API_URL = normalizeBaseUrl(
+  process.env.REACT_APP_API_URL ||
+  process.env.REACT_APP_API_BASE_URL ||
+  DEFAULT_API_BASE_URL
 )
+// Giữ API_BASE_URL để tương thích với các import cũ.
+export const API_BASE_URL = API_URL
 
 const getDefaultAdminPortalUrl = () => {
   if (typeof window === 'undefined') {
@@ -37,7 +42,7 @@ export const resolveImageUrl = (imagePath) => {
     return imagePath
   }
   if (imagePath.startsWith('/')) {
-    return API_BASE_URL ? `${API_BASE_URL}${imagePath}` : imagePath
+    return API_URL ? `${API_URL}${imagePath}` : imagePath
   }
-  return API_BASE_URL ? `${API_BASE_URL}/${imagePath}` : imagePath
+  return API_URL ? `${API_URL}/${imagePath}` : imagePath
 }
