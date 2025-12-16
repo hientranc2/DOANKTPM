@@ -252,5 +252,39 @@ const Dashboard = () => {
     </div>
   )
 }
+const computeRevenueFromOrders = (orders = [], now = new Date()) => {
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startOfYear = new Date(now.getFullYear(), 0, 1);
+
+  let today = 0;
+  let month = 0;
+  let year = 0;
+
+  for (const order of orders) {
+    const createdAt = normalizeDate(order.createdAt);
+    if (!createdAt) continue;
+
+    const total = Number(order.total);
+    const resolvedTotal = Number.isNaN(total)
+      ? computeTotalsFromItems(order.items)
+      : total;
+
+    if (createdAt >= startOfToday) today += resolvedTotal;
+    if (createdAt >= startOfMonth) month += resolvedTotal;
+    if (createdAt >= startOfYear) year += resolvedTotal;
+  }
+
+  return { today, month, year };
+};
 
 export default Dashboard
+export {
+  formatCurrency,
+  normalizeDate,
+  computeTotalsFromItems,
+  computeRevenueFromOrders
+
+};

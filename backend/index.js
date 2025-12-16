@@ -57,17 +57,18 @@ const ensureSchemaAndAdminUser = async () => {
   }
 };
 
-pool.connect()
-  .then(async (client) => {
-    client.release();
-    console.log('Connected to PostgreSQL');
-    try {
-      await ensureSchemaAndAdminUser();
-    } catch (error) {
-      console.error('Failed to initialize database schema', error);
-    }
-  })
-  .catch(err => console.error('PostgreSQL connection error', err.stack));
+- pool.connect()
+      .then(async (client) => {
+        client.release();
+        console.log('Connected to PostgreSQL');
+        try {
+          await ensureSchemaAndAdminUser();
+        } catch (error) {
+          console.error('Failed to initialize database schema', error);
+        }
+      })
+      .catch(err => console.error('PostgreSQL connection error', err.stack));
++ 
 
 // ================== API TEST ==================
 app.get("/", (req, res) => {
@@ -736,7 +737,10 @@ app.patch('/orders/:orderId', async (req, res) => {
 });
 
 // ================== START SERVER ==================
-app.listen(port, (error) => {
-  if (!error) console.log(`Server is running on port ${port}`);
-  else console.log("Error occurred, server can't start", error);
-});
+if (process.env.NODE_ENV !== "test") {
+  app.listen(port, () => console.log(`Server running`));
+}
+module.exports = { 
+  formatOrderResponse,
+  fetchuser
+};
