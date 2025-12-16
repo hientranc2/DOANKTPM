@@ -5,7 +5,8 @@ const normalizeBaseUrl = (url) => {
   return url.endsWith('/') ? url.slice(0, -1) : url
 }
 
-const DEFAULT_API_BASE_URL = 'http://localhost:4000'
+// Không hardcode localhost để tránh trỏ sai môi trường; mặc định để trống, buộc lấy từ ENV.
+const DEFAULT_API_BASE_URL = ''
 
 // Ưu tiên REACT_APP_API_URL (theo yêu cầu), fallback REACT_APP_API_BASE_URL rồi tới mặc định.
 export const API_URL = normalizeBaseUrl(
