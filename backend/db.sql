@@ -61,3 +61,7 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
 
 -- Optional: Create admin user for initial setup
 -- INSERT INTO users (name, email, password, status) VALUES ('Admin', 'admin@clothify.com', 'hashed_password_here', 'active');
+
+CREATE DATABASE clothify_test;
+
+

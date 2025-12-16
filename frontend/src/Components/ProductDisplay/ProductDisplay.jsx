@@ -71,6 +71,8 @@ const ProductDisplay = (props) => {
     navigate('/')
   }
 
+  const productImage = activeImage || resolvedImages[0] || ''
+
   return (
     <div className='productdisplay'>
       <div className='productdisplay-left'>

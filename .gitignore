@@ -36,3 +36,5 @@ build/
 .env.local
 .DS_Store  # MacOS files
 
+# Backend uploads
+backend/upload/
