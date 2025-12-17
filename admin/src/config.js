@@ -5,10 +5,13 @@ const normalizeBaseUrl = (url) => {
   return url.endsWith('/') ? url.slice(0, -1) : url
 }
 
-const DEFAULT_API_BASE_URL = 'http://localhost:4000'
+const DEFAULT_API_BASE_URL = 'https://doanktpm.onrender.com'
+
+const envApiBaseUrl =
+  import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL
 
 export const API_BASE_URL = normalizeBaseUrl(
-  import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL
+  envApiBaseUrl || DEFAULT_API_BASE_URL
 )
 
 const isAbsoluteUrl = (url) => /^https?:\/\//i.test(url)
