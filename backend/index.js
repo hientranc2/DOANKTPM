@@ -167,6 +167,19 @@ const ensureSchemaAndAdminUser = async () => {
     WHERE images IS NOT NULL AND jsonb_typeof(images) = 'array'
   `);
 
+  // ensure sequences are aligned with current max(id) to avoid duplicate key errors on insert
+  const syncSequence = async (table, column) => {
+    const seqResult = await pool.query(`SELECT pg_get_serial_sequence($1, $2) AS seq`, [table, column]);
+    const seqName = seqResult.rows[0]?.seq;
+    if (!seqName) return;
+    await pool.query(`SELECT setval($1, COALESCE((SELECT MAX(${column}) FROM ${table}), 0))`, [seqName]);
+  };
+
+  await syncSequence("products", "id");
+  await syncSequence("users", "id");
+  await syncSequence("orders", "id");
+  await syncSequence("order_items", "id");
+
   // seed/update admin
   const adminResult = await pool.query("SELECT id, role FROM users WHERE email = $1", [DEFAULT_ADMIN_EMAIL]);
 
