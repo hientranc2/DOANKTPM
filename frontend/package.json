@@ -18,6 +18,7 @@
     "build": "react-scripts build",
     "build:staging": "set \"REACT_APP_API_URL=https://YOUR_API_STAGING_URL\" && react-scripts build",
     "test": "react-scripts test",
+    "test:integration": "react-scripts test --runTestsByPath src/__tests__/integration.test.jsx --watchAll=false",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
