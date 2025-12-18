@@ -18,12 +18,18 @@ export const API_URL = normalizeBaseUrl(
 export const API_BASE_URL = API_URL
 
 const getDefaultAdminPortalUrl = () => {
+  const hostedAdmin = 'https://admin-alpha-six-93.vercel.app'
+
   if (typeof window === 'undefined') {
-    return '/admin'
+    return hostedAdmin
   }
 
   const { protocol, hostname } = window.location
-  return `${protocol}//${hostname}:5173`
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return `${protocol}//${hostname}:5173`
+  }
+
+  return hostedAdmin
 }
 
 export const ADMIN_PORTAL_URL = normalizeBaseUrl(
