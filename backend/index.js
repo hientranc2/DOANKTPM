@@ -36,26 +36,82 @@ const ALLOWED_ROLES = ["customer", "admin"];
 
 // Trust proxy (quan trọng khi chạy sau reverse proxy như Render)
 app.set("trust proxy", 1);
-
 app.use(express.json({ limit: "10mb" }));
+
+// ================== HELPERS ==================
+const stripTrailingSlash = (s) => String(s || "").replace(/\/+$/, "");
+
+const resolveConfiguredPublicBase = () => {
+  const explicitEnv = stripTrailingSlash(process.env.PUBLIC_BASE_URL || "");
+  if (explicitEnv) return explicitEnv;
+
+  const renderExternalUrl = stripTrailingSlash(process.env.RENDER_EXTERNAL_URL || "");
+  if (renderExternalUrl) return renderExternalUrl;
+
+  const renderHostname = stripTrailingSlash(process.env.RENDER_EXTERNAL_HOSTNAME || "");
+  if (renderHostname) return `https://${renderHostname}`;
+
+  if (process.env.NODE_ENV === "production") return "https://doanktpm.onrender.com";
+
+  return "";
+};
+
+const STATIC_PUBLIC_BASE_URL = resolveConfiguredPublicBase();
+
+// URL public của backend (ưu tiên ENV/render metadata để luôn là https)
+const getPublicBaseUrl = (req) => {
+  if (STATIC_PUBLIC_BASE_URL) return STATIC_PUBLIC_BASE_URL;
+
+  const forwardedProto = req.get("x-forwarded-proto");
+  const proto = forwardedProto ? forwardedProto.split(",")[0] : req.protocol;
+
+  return stripTrailingSlash(`${proto}://${req.get("host")}`);
+};
+
+// Chuyển image URL/path về dạng lưu DB (NÊN LƯU RELATIVE: /images/xxx.png)
+const toStoredImagePath = (val) => {
+  if (!val) return "";
+  const s = String(val).trim();
+
+  // Nếu là full URL -> lấy pathname (/images/...)
+  try {
+    if (/^https?:\/\//i.test(s)) {
+      const u = new URL(s);
+      return u.pathname;
+    }
+  } catch (e) {}
+
+  // Nếu đã là /images/.. hoặc images/.. thì normalize
+  if (s.startsWith("/")) return s;
+  return "/" + s;
+};
+
+// Khi trả về cho frontend: luôn convert về absolute URL theo Render domain (https)
+const toPublicImageUrl = (req, val) => {
+  if (!val) return "";
+  const base = getPublicBaseUrl(req);
+  const p = toStoredImagePath(val);
+  return `${base}${p}`;
+};
 
 // ================== CORS ==================
 // Set ENV: CORS_ORIGIN="https://your-frontend.vercel.app,https://another-domain.com"
 const allowedOrigins = (process.env.CORS_ORIGIN || "")
   .split(",")
-  .map((s) => s.trim())
+  .map((s) => stripTrailingSlash(s.trim()))
   .filter(Boolean);
 
 app.use(
   cors({
     origin: (origin, cb) => {
-      // Cho phép Postman/curl không có origin
-      if (!origin) return cb(null, true);
+      if (!origin) return cb(null, true); // Postman/curl
 
       // Dev: nếu chưa set CORS_ORIGIN thì cho all
       if (allowedOrigins.length === 0) return cb(null, true);
 
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+      const normalized = stripTrailingSlash(origin);
+      if (allowedOrigins.includes(normalized)) return cb(null, true);
+
       return cb(new Error("Not allowed by CORS: " + origin));
     },
     credentials: true,
@@ -68,7 +124,7 @@ const pool = new Pool(
   process.env.DATABASE_URL
     ? {
         connectionString: process.env.DATABASE_URL,
-        // Render/host thường cần SSL
+        // Render/host thường cần SSL (nhất là external URL)
         ssl:
           process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging"
             ? { rejectUnauthorized: false }
@@ -83,7 +139,7 @@ const pool = new Pool(
       }
 );
 
-// ================== DB INIT (schema + seed admin) ==================
+// ================== DB INIT (schema + seed admin + fix old data) ==================
 const ensureSchemaAndAdminUser = async () => {
   // users.role
   await pool.query(`
@@ -115,6 +171,35 @@ const ensureSchemaAndAdminUser = async () => {
     END
   `);
 
+  // ✅ FIX: strip localhost URLs đã lưu trong DB (mixed content)
+  await pool.query(`
+    UPDATE products
+    SET image = regexp_replace(image, '^https?://localhost:4000', '')
+    WHERE image ~ '^https?://localhost:4000'
+  `);
+
+  await pool.query(`
+    UPDATE products
+    SET images = (
+      SELECT jsonb_agg(regexp_replace(value, '^https?://localhost:4000', ''))
+      FROM jsonb_array_elements_text(images) AS value
+    )
+    WHERE images IS NOT NULL AND jsonb_typeof(images) = 'array'
+  `);
+
+  // ensure sequences are aligned with current max(id) to avoid duplicate key errors on insert
+  const syncSequence = async (table, column) => {
+    const seqResult = await pool.query(`SELECT pg_get_serial_sequence($1, $2) AS seq`, [table, column]);
+    const seqName = seqResult.rows[0]?.seq;
+    if (!seqName) return;
+    await pool.query(`SELECT setval($1, COALESCE((SELECT MAX(${column}) FROM ${table}), 0))`, [seqName]);
+  };
+
+  await syncSequence("products", "id");
+  await syncSequence("users", "id");
+  await syncSequence("orders", "id");
+  await syncSequence("order_items", "id");
+
   // seed/update admin
   const adminResult = await pool.query("SELECT id, role FROM users WHERE email = $1", [DEFAULT_ADMIN_EMAIL]);
 
@@ -132,11 +217,15 @@ const ensureSchemaAndAdminUser = async () => {
   }
 };
 
-const initDb = async () => {
-  await pool.query("SELECT 1");
-  console.log("Connected to PostgreSQL");
-  await ensureSchemaAndAdminUser();
-};
+(async () => {
+  try {
+    await pool.query("SELECT 1");
+    console.log("Connected to PostgreSQL");
+    await ensureSchemaAndAdminUser();
+  } catch (err) {
+    console.error("DB init error:", err);
+  }
+})();
 
 // ================== API TEST ==================
 app.get("/", (req, res) => {
@@ -161,8 +250,7 @@ app.use("/images", express.static(uploadDir));
 app.post("/upload", upload.single("product"), (req, res) => {
   if (!req.file) return res.status(400).json({ success: 0, message: "No file uploaded" });
 
-  const baseUrl = process.env.PUBLIC_BASE_URL || `${req.protocol}://${req.get("host")}`;
-
+  const baseUrl = getPublicBaseUrl(req);
   res.json({
     success: 1,
     image_url: `${baseUrl}/images/${req.file.filename}`,
@@ -177,10 +265,13 @@ app.post("/addproduct", async (req, res) => {
     const { name, image, images = [], category, new_price, old_price } = req.body;
 
     const normalizedImages = Array.isArray(images)
-      ? images.filter((img) => typeof img === "string" && img.trim().length > 0)
+      ? images
+          .map(toStoredImagePath)
+          .filter((img) => typeof img === "string" && img.trim().length > 0)
       : [];
 
-    const primaryImage = normalizedImages[0] || image;
+    const primaryImage = normalizedImages[0] || toStoredImagePath(image);
+
     const parsedNewPrice = Number(new_price);
     const parsedOldPrice = Number(old_price);
 
@@ -239,19 +330,23 @@ app.put("/product/:id", async (req, res) => {
     }
 
     if (image !== undefined) {
+      const stored = toStoredImagePath(image);
       fields.push(`image = $${idx++}`);
-      values.push(image);
+      values.push(stored);
     }
 
     if (images !== undefined) {
       const normalizedImages = Array.isArray(images)
-        ? images.filter((img) => typeof img === "string" && img.trim().length > 0)
+        ? images
+            .map(toStoredImagePath)
+            .filter((img) => typeof img === "string" && img.trim().length > 0)
         : [];
 
       fields.push(`images = $${idx++}::jsonb`);
       values.push(JSON.stringify(normalizedImages));
 
-      if (!image && normalizedImages.length > 0) {
+      // nếu không truyền image mà có images -> set image = images[0]
+      if ((image === undefined || !image) && normalizedImages.length > 0) {
         fields.push(`image = $${idx++}`);
         values.push(normalizedImages[0]);
       }
@@ -301,12 +396,18 @@ app.put("/product/:id", async (req, res) => {
   }
 });
 
-// GET ALL PRODUCTS
+// GET ALL PRODUCTS (trả image/images dạng FULL https URL)
 app.get("/allproducts", async (req, res) => {
   try {
-    // Nếu bảng products không có cột date thì đổi sang created_at/updated_at tùy schema bạn
-    const result = await pool.query("SELECT * FROM products ORDER BY date DESC");
-    res.json(result.rows);
+    const result = await pool.query("SELECT * FROM products ORDER BY id DESC");
+
+    const rows = result.rows.map((p) => {
+      const image = p.image ? toPublicImageUrl(req, p.image) : "";
+      const imgs = Array.isArray(p.images) ? p.images.map((x) => toPublicImageUrl(req, x)) : [];
+      return { ...p, image, images: imgs };
+    });
+
+    res.json(rows);
   } catch (error) {
     console.error("Error fetching products", error);
     res.status(500).json({ success: false, message: "Unable to fetch products." });
@@ -439,9 +540,7 @@ app.patch("/users/:userId/status", async (req, res) => {
     }
 
     const existingUser = await pool.query("SELECT id, email FROM users WHERE id = $1", [Number(userId)]);
-    if (existingUser.rowCount === 0) {
-      return res.status(404).json({ success: false, message: "User not found." });
-    }
+    if (existingUser.rowCount === 0) return res.status(404).json({ success: false, message: "User not found." });
 
     const normalizedEmail = (existingUser.rows[0].email || "").toLowerCase();
     if (normalizedEmail === DEFAULT_ADMIN_EMAIL && status !== "active") {
@@ -458,13 +557,7 @@ app.patch("/users/:userId/status", async (req, res) => {
 
     res.json({
       success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        status: user.status,
-        createdAt: user.created_at,
-      },
+      user: { id: user.id, name: user.name, email: user.email, status: user.status, createdAt: user.created_at },
     });
   } catch (error) {
     console.error("Error updating user status", error);
@@ -508,14 +601,7 @@ app.patch("/users/:userId/role", async (req, res) => {
 
     res.json({
       success: true,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        status: user.status,
-        role: user.role || "customer",
-        createdAt: user.created_at,
-      },
+      user: { id: user.id, name: user.name, email: user.email, status: user.status, role: user.role, createdAt: user.created_at },
     });
   } catch (error) {
     console.error("Error updating user role", error);
@@ -531,9 +617,8 @@ const fetchuser = (req, res, next) => {
     const authHeader = req.header("authorization");
     const token = authToken || (authHeader && authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null);
 
-    if (!token) {
-      return res.status(401).json({ error: "No token, authorization denied" });
-    }
+    if (!token) return res.status(401).json({ error: "No token, authorization denied" });
+
     const data = jwt.verify(token, JWT_SECRET);
     req.user = data; // { id, email }
     next();
@@ -761,42 +846,7 @@ app.patch("/orders/:orderId", async (req, res) => {
   }
 });
 
-// ================== START/STOP SERVER (for prod/dev) ==================
-let server = null;
-
-const startServer = async () => {
-  try {
-    await initDb();
-  } catch (err) {
-    console.error("DB init error:", err);
-  }
-
-  server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-  });
-
-  return server;
-};
-
-const stopServer = async () => {
-  if (server) {
-    await new Promise((resolve) => server.close(resolve));
-    server = null;
-  }
-};
-
-// Only start server when not running tests
-if (process.env.NODE_ENV !== "test") {
-  startServer();
-}
-
-module.exports = {
-  app,
-  pool,
-  fetchuser,
-  formatOrderResponse,
-  ensureSchemaAndAdminUser,
-  initDb,
-  startServer,
-  stopServer,
-};
+// ================== START SERVER ==================
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});

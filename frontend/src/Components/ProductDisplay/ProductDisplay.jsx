@@ -3,7 +3,7 @@ import './ProductDisplay.css'
 import star_icon from '../assests/star_icon.png'
 import star_dull_icon from '../assests/star_dull_icon.png'
 import { ShopContext } from '../../Context/ShopContext'
-import { resolveImageUrl } from '../../config'
+import { resolveImageUrl } from '../../utils/resolveImageUrl'
 import { useNavigate } from 'react-router-dom'
 
 const ProductDisplay = (props) => {
@@ -89,12 +89,21 @@ const ProductDisplay = (props) => {
               }
               onClick={() => setActiveImage(img)}
             >
-              <img src={img} alt='Hình sản phẩm' />
+              <img
+                src={img}
+                alt='Hình sản phẩm'
+                onError={(e) => { e.currentTarget.src = '/placeholder.png' }}
+              />
             </button>
           ))}
         </div>
         <div className='prodcutdisplay-img'>
-          <img className='prodcutdisplay-main-img' src={activeImage} alt='' />
+          <img
+            className='prodcutdisplay-main-img'
+            src={activeImage}
+            alt={product.name}
+            onError={(e) => { e.currentTarget.src = '/placeholder.png' }}
+          />
         </div>
       </div>
       <div className='productdisplay-right'>
@@ -185,6 +194,7 @@ const ProductDisplay = (props) => {
                 className='productdisplay-feedback-product-image'
                 src={productImage}
                 alt={product.name}
+                onError={(e) => { e.currentTarget.src = '/placeholder.png' }}
               />
             <div className='productdisplay-feedback-product-details'>
               <p className='productdisplay-feedback-product'>{product.name}</p>
