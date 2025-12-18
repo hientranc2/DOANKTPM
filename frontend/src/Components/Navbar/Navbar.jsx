@@ -7,7 +7,6 @@ import cart_icon from '../assests/cart_icon.png'
 import { ShopContext } from '../../Context/ShopContext'
 import nav_dropdown from '../assests/nav_dropdown.png'
 import { AuthContext } from '../../Context/AuthContext'
-import { resolveImageUrl } from '../../utils/resolveImageUrl'
 
 const Navbar = () => {
     const [menu, setMenu] = useState("Cửa hàng")
@@ -112,11 +111,7 @@ const Navbar = () => {
                                         className='nav-search-suggestion-item'
                                         onClick={() => handleSelectSuggestion(product)}
                                     >
-                                        <img
-                                            src={resolveImageUrl(product.image || product.images?.[0])}
-                                            alt={product.name}
-                                            onError={(e) => { e.currentTarget.src = '/placeholder.png' }}
-                                        />
+                                        <img src={product.image} alt={product.name} />
                                         <div className='nav-search-suggestion-info'>
                                             <span className='nav-search-suggestion-name'>{product.name}</span>
                                             <span className='nav-search-suggestion-price'>
