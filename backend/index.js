@@ -41,11 +41,31 @@ app.use(express.json({ limit: "10mb" }));
 // ================== HELPERS ==================
 const stripTrailingSlash = (s) => String(s || "").replace(/\/+$/, "");
 
-// URL public của backend (ưu tiên ENV để luôn là https)
+const resolveConfiguredPublicBase = () => {
+  const explicitEnv = stripTrailingSlash(process.env.PUBLIC_BASE_URL || "");
+  if (explicitEnv) return explicitEnv;
+
+  const renderExternalUrl = stripTrailingSlash(process.env.RENDER_EXTERNAL_URL || "");
+  if (renderExternalUrl) return renderExternalUrl;
+
+  const renderHostname = stripTrailingSlash(process.env.RENDER_EXTERNAL_HOSTNAME || "");
+  if (renderHostname) return `https://${renderHostname}`;
+
+  if (process.env.NODE_ENV === "production") return "https://doanktpm.onrender.com";
+
+  return "";
+};
+
+const STATIC_PUBLIC_BASE_URL = resolveConfiguredPublicBase();
+
+// URL public của backend (ưu tiên ENV/render metadata để luôn là https)
 const getPublicBaseUrl = (req) => {
-  const envBase = stripTrailingSlash(process.env.PUBLIC_BASE_URL || "");
-  if (envBase) return envBase;
-  return stripTrailingSlash(`${req.protocol}://${req.get("host")}`);
+  if (STATIC_PUBLIC_BASE_URL) return STATIC_PUBLIC_BASE_URL;
+
+  const forwardedProto = req.get("x-forwarded-proto");
+  const proto = forwardedProto ? forwardedProto.split(",")[0] : req.protocol;
+
+  return stripTrailingSlash(`${proto}://${req.get("host")}`);
 };
 
 // Chuyển image URL/path về dạng lưu DB (NÊN LƯU RELATIVE: /images/xxx.png)
