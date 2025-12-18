@@ -1,13 +1,20 @@
 import React from 'react'
 import './Item.css'
 import { Link } from 'react-router-dom'
-import { resolveImageUrl } from '../../config'
+import { resolveImageUrl } from '../../utils/resolveImageUrl'
 
 const Item = (props) => {
     const imageSrc = resolveImageUrl(props.image)
     return (
         <div className='item'>
-            <Link to={`/product/${props.id}`}><img onClick={() => window.scrollTo(0, 0)} src={imageSrc} alt='' /></Link>
+            <Link to={`/product/${props.id}`}>
+                <img
+                    onClick={() => window.scrollTo(0, 0)}
+                    src={imageSrc}
+                    alt={props.name}
+                    onError={(e) => { e.currentTarget.src = '/placeholder.png' }}
+                />
+            </Link>
             <p>{props.name}</p>
             <div className="item-prices">
                 <div className="item-price-new">

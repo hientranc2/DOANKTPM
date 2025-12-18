@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import './ListProduct.css'
 import cross_icon from '../../assets/cross_icon.png'
-import { API_BASE_URL, resolveImageUrl } from '../../config'
+import { API_BASE_URL } from '../../config'
+import { resolveImageUrl } from '../../utils/resolveImageUrl'
 
 const ListProduct = () => {
   const [allProducts, setAllProducts] = useState([])
@@ -127,7 +128,12 @@ const ListProduct = () => {
           allProducts.map((product) => (
             <React.Fragment key={product.id}>
               <div className='listproduct-format-main listproduct-format'>
-                <img src={resolveImageUrl(product.image)} alt='' className='listproduct-product-icon' />
+                <img
+                  src={resolveImageUrl(product.image || product.images?.[0])}
+                  alt={product.name}
+                  className='listproduct-product-icon'
+                  onError={(e) => { e.currentTarget.src = '/placeholder.png' }}
+                />
                 <p>{product.name}</p>
                 <p>{product.old_price}đ</p>
                 <p>{product.new_price}đ</p>

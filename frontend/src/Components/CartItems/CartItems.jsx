@@ -3,7 +3,7 @@ import './CartItems.css'
 import { ShopContext } from '../../Context/ShopContext'
 import remove_icon from '../assests/cart_cross_icon.png'
 import cart_header_icon from '../assests/cart_icon.png'
-import { resolveImageUrl } from '../../config'
+import { resolveImageUrl } from '../../utils/resolveImageUrl'
 import { useNavigate } from 'react-router-dom'
 import { AuthContext } from '../../Context/AuthContext'
 
@@ -85,9 +85,10 @@ const CartItems = () => {
               <div key={key}>
                 <div className='cartiems-format cartitems-format-main'>
                   <img
-                    src={resolveImageUrl(product.image)}
+                    src={resolveImageUrl(product.image || product.images?.[0])}
                     alt={product.name}
                     className='carticon-product-icon'
+                    onError={(e) => { e.currentTarget.src = '/placeholder.png' }}
                   />
                   <div>
                     <p>{product.name}</p>
