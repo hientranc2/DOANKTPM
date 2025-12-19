@@ -86,12 +86,10 @@ const toStoredImagePath = (val) => {
   return "/" + s;
 };
 
-// Khi trả về cho frontend: luôn convert về absolute URL theo Render domain (https)
+// Khi trả về cho frontend: chỉ return relative path - frontend sẽ resolve via resolveImageUrl()
 const toPublicImageUrl = (req, val) => {
   if (!val) return "";
-  const base = getPublicBaseUrl(req);
-  const p = toStoredImagePath(val);
-  return `${base}${p}`;
+  return toStoredImagePath(val);
 };
 
 // ================== CORS ==================
@@ -254,10 +252,10 @@ app.use("/images", express.static(uploadDir));
 app.post("/upload", upload.single("product"), (req, res) => {
   if (!req.file) return res.status(400).json({ success: 0, message: "No file uploaded" });
 
-  const baseUrl = getPublicBaseUrl(req);
+  // Return relative path - frontend will resolve to full URL via resolveImageUrl()
   res.json({
     success: 1,
-    image_url: `${baseUrl}/images/${req.file.filename}`,
+    image_url: `/images/${req.file.filename}`,
   });
 });
 

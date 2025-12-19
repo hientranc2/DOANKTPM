@@ -48,6 +48,10 @@ export const resolveImageUrl = (imagePath) => {
   if (imagePath.startsWith('/assets/')) {
     return imagePath
   }
+  // If already has /api prefix, return as is
+  if (imagePath.startsWith('/api/')) {
+    return imagePath
+  }
   if (imagePath.startsWith('/')) {
     return API_URL ? `${API_URL}${imagePath}` : imagePath
   }
