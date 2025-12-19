@@ -851,6 +851,11 @@ app.patch("/orders/:orderId", async (req, res) => {
 });
 
 // ================== START SERVER ==================
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Xuất app để dùng trong test (Supertest); chỉ listen khi không ở môi trường test
+if (process.env.NODE_ENV !== "test") {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
