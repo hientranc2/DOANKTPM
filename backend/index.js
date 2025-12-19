@@ -79,19 +79,17 @@ const toStoredImagePath = (val) => {
       const u = new URL(s);
       return u.pathname;
     }
-  } catch (e) {}
+  } catch (e) { }
 
   // Nếu đã là /images/.. hoặc images/.. thì normalize
   if (s.startsWith("/")) return s;
   return "/" + s;
 };
 
-// Khi trả về cho frontend: luôn convert về absolute URL theo Render domain (https)
+// Khi trả về cho frontend: chỉ return relative path - frontend sẽ resolve via resolveImageUrl()
 const toPublicImageUrl = (req, val) => {
   if (!val) return "";
-  const base = getPublicBaseUrl(req);
-  const p = toStoredImagePath(val);
-  return `${base}${p}`;
+  return toStoredImagePath(val);
 };
 
 // ================== CORS ==================
@@ -123,20 +121,24 @@ app.use(
 const pool = new Pool(
   process.env.DATABASE_URL
     ? {
-        connectionString: process.env.DATABASE_URL,
-        // Render/host thường cần SSL (nhất là external URL)
-        ssl:
-          process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging"
-            ? { rejectUnauthorized: false }
-            : false,
-      }
+      connectionString: process.env.DATABASE_URL,
+      // Render/host thường cần SSL (nhất là external URL)
+      ssl:
+        process.env.NODE_ENV === "production" || process.env.NODE_ENV === "staging"
+          ? { rejectUnauthorized: false }
+          : false,
+    }
     : {
-        user: process.env.POSTGRES_USER || "postgres",
-        host: process.env.POSTGRES_HOST || "localhost",
-        database: process.env.POSTGRES_DB || "clothify",
-        password: process.env.POSTGRES_PASSWORD || "kt123456",
-        port: Number(process.env.POSTGRES_PORT || 5432),
-      }
+      user: process.env.POSTGRES_USER || "postgres",
+      host: process.env.POSTGRES_HOST || "localhost",
+      database: process.env.POSTGRES_DB || "clothify",
+      password: process.env.POSTGRES_PASSWORD || "kt123456",
+      port: Number(process.env.POSTGRES_PORT || 5432),
+      // Enable SSL for external databases (Render, AWS RDS, etc.)
+      ssl: process.env.POSTGRES_HOST && process.env.POSTGRES_HOST !== "db"
+        ? { rejectUnauthorized: false }
+        : false,
+    }
 );
 
 // ================== DB INIT (schema + seed admin + fix old data) ==================
@@ -250,10 +252,10 @@ app.use("/images", express.static(uploadDir));
 app.post("/upload", upload.single("product"), (req, res) => {
   if (!req.file) return res.status(400).json({ success: 0, message: "No file uploaded" });
 
-  const baseUrl = getPublicBaseUrl(req);
+  // Return relative path - frontend will resolve to full URL via resolveImageUrl()
   res.json({
     success: 1,
-    image_url: `${baseUrl}/images/${req.file.filename}`,
+    image_url: `/images/${req.file.filename}`,
   });
 });
 
@@ -266,8 +268,8 @@ app.post("/addproduct", async (req, res) => {
 
     const normalizedImages = Array.isArray(images)
       ? images
-          .map(toStoredImagePath)
-          .filter((img) => typeof img === "string" && img.trim().length > 0)
+        .map(toStoredImagePath)
+        .filter((img) => typeof img === "string" && img.trim().length > 0)
       : [];
 
     const primaryImage = normalizedImages[0] || toStoredImagePath(image);
@@ -338,8 +340,8 @@ app.put("/product/:id", async (req, res) => {
     if (images !== undefined) {
       const normalizedImages = Array.isArray(images)
         ? images
-            .map(toStoredImagePath)
-            .filter((img) => typeof img === "string" && img.trim().length > 0)
+          .map(toStoredImagePath)
+          .filter((img) => typeof img === "string" && img.trim().length > 0)
         : [];
 
       fields.push(`images = $${idx++}::jsonb`);
@@ -684,15 +686,15 @@ const formatOrderResponse = (order, items = []) => ({
   createdAt: order.created_at,
   customer: order.customer_id
     ? {
-        id: order.customer_id,
-        name: order.user_name || order.customer_name,
-        email: order.user_email || order.customer_email,
-        status: order.user_status || "active",
-      }
+      id: order.customer_id,
+      name: order.user_name || order.customer_name,
+      email: order.user_email || order.customer_email,
+      status: order.user_status || "active",
+    }
     : {
-        name: order.customer_name,
-        email: order.customer_email,
-      },
+      name: order.customer_name,
+      email: order.customer_email,
+    },
   items: items.map((item) => ({
     productId: item.product_id,
     name: item.name,
@@ -761,11 +763,11 @@ app.post("/orders", async (req, res) => {
 
     const sanitizedItems = Array.isArray(items)
       ? items.map((item) => ({
-          product_id: item.productId,
-          name: item.name,
-          quantity: Number(item.quantity) || 0,
-          price: Number(item.price) || 0,
-        }))
+        product_id: item.productId,
+        name: item.name,
+        quantity: Number(item.quantity) || 0,
+        price: Number(item.price) || 0,
+      }))
       : [];
 
     const parsedTotal = Number(total) || 0;
