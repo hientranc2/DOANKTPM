@@ -1,9 +1,9 @@
-const path = require('path')
-const fs = require('fs')
 const request = require('supertest')
 
 // Mock pg using pg-mem to avoid external DB in CI
 jest.mock('pg', () => {
+  const fs = require('fs')
+  const path = require('path')
   const { newDb } = require('pg-mem')
   const db = newDb({ autoCreateForeignKeyIndices: true })
   const schema = fs.readFileSync(path.join(__dirname, '..', '..', 'db.sql'), 'utf8')
