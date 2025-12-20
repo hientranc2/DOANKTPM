@@ -63,7 +63,7 @@ process.env.ADMIN_PASSWORD = 'Admin@123'
 process.env.ADMIN_NAME = 'Admin Test'
 
 // Import app after mocking pg
-const app = require('../index')
+const { app } = require('../index')
 
 describe('Backend API (pg-mem)', () => {
   let createdProductId

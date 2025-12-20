@@ -32,12 +32,12 @@ describe('config.js', () => {
       expect(API_URL).toBe('http://localhost:9999')
     })
 
-    test('fallback default http://localhost:4000', () => {
+    test('fallback default /api', () => {
       delete process.env.REACT_APP_API_URL
       delete process.env.REACT_APP_API_BASE_URL
       jest.resetModules()
       const { API_URL } = require('../config')
-      expect(API_URL).toBe('http://localhost:4000')
+      expect(API_URL).toBe('/api')
     })
   })
 
