@@ -6,6 +6,7 @@ import Checkout from '../Pages/Checkout'
 import { ShopContext } from '../Context/ShopContext'
 import ShopContextProvider from '../Context/ShopContext'
 import AuthProvider from '../Context/AuthContext'
+import { MemoryRouter } from 'react-router-dom'
 
 const mockProducts = [
   {
@@ -34,7 +35,9 @@ const mockFetch = () => {
 const renderWithProviders = (ui) =>
   render(
     <AuthProvider>
-      <ShopContextProvider>{ui}</ShopContextProvider>
+      <ShopContextProvider>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </ShopContextProvider>
     </AuthProvider>
   )
 
