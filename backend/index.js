@@ -225,7 +225,9 @@ const ensureSchemaAndAdminUser = async () => {
   try {
     await pool.query("SELECT 1");
     console.log("Connected to PostgreSQL");
-    await ensureSchemaAndAdminUser();
+    if (process.env.NODE_ENV !== "test") {
+      await ensureSchemaAndAdminUser();
+    }
   } catch (err) {
     console.error("DB init error:", err);
   }

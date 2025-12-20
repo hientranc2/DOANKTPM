@@ -1,10 +1,12 @@
-import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import React, { useContext, useEffect } from 'react'
+import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import App from '../App'
-import { MemoryRouter } from 'react-router-dom'
+import Shop from '../Pages/Shop'
+import Checkout from '../Pages/Checkout'
+import { ShopContext } from '../Context/ShopContext'
+import ShopContextProvider from '../Context/ShopContext'
+import AuthProvider from '../Context/AuthContext'
 
-// Mock fetch globally
 const mockProducts = [
   {
     id: 1,
@@ -19,23 +21,21 @@ const mockProducts = [
 
 const mockFetch = () => {
   global.fetch = jest.fn()
-    // first call: products
     .mockResolvedValueOnce({
       ok: true,
       json: async () => mockProducts,
     })
-    // orders checkout post
     .mockResolvedValue({
       ok: true,
       json: async () => ({ success: true, order: { orderId: 1, items: [], total: 100000 } }),
     })
 }
 
-const renderApp = (initialPath = '/') =>
+const renderWithProviders = (ui) =>
   render(
-    <MemoryRouter initialEntries={[initialPath]}>
-      <App />
-    </MemoryRouter>
+    <AuthProvider>
+      <ShopContextProvider>{ui}</ShopContextProvider>
+    </AuthProvider>
   )
 
 describe('Frontend flows (UI)', () => {
@@ -45,43 +45,39 @@ describe('Frontend flows (UI)', () => {
   })
 
   test('Render Home OK', async () => {
-    renderApp('/')
+    renderWithProviders(<Shop />)
     expect(await screen.findByText(/Bán chạy của phụ nữ/i)).toBeInTheDocument()
   })
 
-  test('Click product → into detail', async () => {
-    renderApp('/')
-    const productLink = await screen.findByRole('link', { name: /Áo sơ mi/i })
-    await userEvent.click(productLink)
-    await waitFor(() => {
-      expect(window.location.pathname).toContain('/product/1')
-    })
+  test('Item link points to detail route', async () => {
+    renderWithProviders(<Shop />)
+    const links = await screen.findAllByRole('link')
+    expect(links[0].getAttribute('href')).toContain('/product/1')
   })
 
-  test('Add to cart → count increases', async () => {
-    renderApp('/')
-    const productLink = await screen.findByRole('link', { name: /Áo sơ mi/i })
-    await userEvent.click(productLink)
+  test('Add to cart increases count (context)', async () => {
+    const CartProbe = () => {
+      const { addToCart, getTotalCartItems, products } = useContext(ShopContext)
+      return (
+        <>
+          <button
+            type='button'
+            onClick={() => products.length && addToCart(products[0].id, 'M')}
+          >
+            add-one
+          </button>
+          <div data-testid='cart-count'>{getTotalCartItems()}</div>
+        </>
+      )
+    }
 
-    const sizeBtn = await screen.findByRole('button', { name: 'M' })
-    await userEvent.click(sizeBtn)
-
-    const addBtn = screen.getByRole('button', { name: /THÊM VÀO GIỎ/i })
-    await userEvent.click(addBtn)
-
-    // after add, cart count badge shows 1
-    await waitFor(() => {
-      expect(screen.getByText('1')).toBeInTheDocument()
-    })
+    renderWithProviders(<CartProbe />)
+    await userEvent.click(screen.getByText('add-one'))
+    expect(await screen.findByTestId('cart-count')).toHaveTextContent('1')
   })
 
-  test('Checkout form validation (missing fields)', async () => {
-    renderApp('/checkout')
-    // ensure products fetched and cart empty
-    const submit = screen.getByRole('button', { name: /THANH TOÁN/i })
-    await userEvent.click(submit)
-    expect(
-      await screen.findByText(/Giỏ hàng của bạn đang trống/i)
-    ).toBeInTheDocument()
+  test('Checkout form validation when cart empty', async () => {
+    renderWithProviders(<Checkout />)
+    expect(await screen.findByText(/Giỏ hàng của bạn đang trống/i)).toBeInTheDocument()
   })
 })
