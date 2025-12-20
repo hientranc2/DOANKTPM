@@ -217,16 +217,17 @@ const ensureSchemaAndAdminUser = async () => {
   }
 };
 
-(async () => {
-  try {
-    await pool.query("SELECT 1");
-    console.log("Connected to PostgreSQL");
-    await ensureSchemaAndAdminUser();
-  } catch (err) {
-    console.error("DB init error:", err);
-  }
-})();
-
+if (process.env.NODE_ENV !== "test") {
+  (async () => {
+    try {
+      await pool.query("SELECT 1");
+      console.log("Connected to PostgreSQL");
+      await ensureSchemaAndAdminUser();
+    } catch (err) {
+      console.error("DB init error:", err);
+    }
+  })();
+}
 // ================== API TEST ==================
 app.get("/", (req, res) => {
   res.send("Express App is running with PostgreSQL");
@@ -847,6 +848,11 @@ app.patch("/orders/:orderId", async (req, res) => {
 });
 
 // ================== START SERVER ==================
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+let server = null;
+
+if (require.main === module && process.env.NODE_ENV !== "test") {
+  server = app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+module.exports = { app, server, fetchuser, formatOrderResponse };
