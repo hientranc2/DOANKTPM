@@ -33,17 +33,12 @@ describe('Admin flows', () => {
       </MemoryRouter>
     )
 
-    const nameInput = screen.getByPlaceholderText(/Type here/i)
-    fireEvent.change(nameInput, { target: { value: 'New Product' } })
+    const [titleInput, priceInput, offerInput] = screen.getAllByPlaceholderText(/Type here/i)
+    fireEvent.change(titleInput, { target: { value: 'New Product' } })
+    fireEvent.change(priceInput, { target: { value: '150000' } })
+    fireEvent.change(offerInput, { target: { value: '120000' } })
 
-    const oldPrice = screen.getByPlaceholderText(/Price/i)
-    fireEvent.change(oldPrice, { target: { value: '150000' } })
-
-    const newPrice = screen.getByPlaceholderText(/Offer Price/i)
-    fireEvent.change(newPrice, { target: { value: '120000' } })
-
-    const fileInput = screen.getByLabelText(/Product Category/i).parentElement?.querySelector('#file-input') ||
-      document.querySelector('#file-input')
+    const fileInput = document.querySelector('#file-input')
     fireEvent.change(fileInput, { target: { files: [file] } })
 
     const submit = screen.getByRole('button', { name: /ADD/i })
