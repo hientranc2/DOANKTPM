@@ -5,7 +5,8 @@ const normalizeBaseUrl = (url) => {
   return url.endsWith('/') ? url.slice(0, -1) : url
 }
 
-const DEFAULT_API_BASE_URL = 'https://doanktpm.onrender.com'
+// Use relative API path so it works in both localhost and proxied environments
+const DEFAULT_API_BASE_URL = '/api'
 
 const envApiBaseUrl =
   import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL

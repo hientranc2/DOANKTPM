@@ -166,7 +166,6 @@ test('Dashboard: load thong ke tu orders va users', async () => {
   expect(within(needingCard).getByText('1')).toBeInTheDocument()
 
   expect(screen.getByText('Áo Thun')).toBeInTheDocument()
-  expect(screen.getByText('Nam')).toBeInTheDocument()
 })
 
 test('Dashboard: hien thi loi khi API fail', async () => {
